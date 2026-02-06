@@ -14,6 +14,7 @@
   <div id="controls">
     <button id="new-game-btn">New random date</button>
     <button id="today-btn" class="secondary">Use today</button>
+    <button id="custom-date-btn" class="secondary">Custom date</button>
     <button id="check-btn" class="secondary">Check</button>
     <button id="reset-pieces-btn" class="secondary">Reset pieces</button>
   </div>
@@ -23,8 +24,9 @@
 <div id="app">
   <div id="board-column">
     <div id="board-container">
-      <div id="board"></div>
-      <div id="year-label"></div>
+      <div id="board">
+        <div id="year-label"></div>
+      </div>
     </div>
     <div id="tip-text">
       Tip: 拖动拼板，按 <b>R</b> 或点小圆钮旋转；把除目标月/日/星期外的格子全盖住。
@@ -33,6 +35,17 @@
   <div id="pieces-panel">
     <div class="panel-header">
       <h2>Pieces</h2>
+      <div id="theme-select">
+        <div id="piece-style">
+          <button type="button" class="style-swatch is-active" data-style="blue" aria-label="Blue"></button>
+          <button type="button" class="style-swatch" data-style="green" aria-label="Green"></button>
+          <button type="button" class="style-swatch" data-style="pink" aria-label="Pink"></button>
+          <button type="button" class="style-swatch" data-style="orange" aria-label="Orange"></button>
+          <button type="button" class="style-swatch" data-style="purple" aria-label="Purple"></button>
+          <button type="button" class="style-swatch" data-style="coffee" aria-label="Coffee"></button>
+          <button type="button" class="style-swatch" data-style="clear" aria-label="Clear"></button>
+        </div>
+      </div>
     </div>
     <div id="pieces-container"></div>
   </div>
