@@ -6,28 +6,17 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div id="wood-board">
 <div id="top-panel">
   <div id="top-left">
     <div id="title-block">
-      <h1>Perpetual Calendar Puzzle</h1>
+      <h1>Calendar Puzzle</h1>
       <div id="target-text"></div>
     </div>
     <div id="controls">
-      <button id="new-game-btn">New random date</button>
-      <button id="today-btn" class="secondary">Use today</button>
-      <button id="check-btn" class="secondary">Check</button>
-      <button id="reset-pieces-btn" class="secondary">Reset pieces</button>
-    </div>
-    <div id="theme-select">
-      <div id="piece-style">
-        <button type="button" class="style-swatch is-active" data-style="blue" aria-label="Blue"></button>
-        <button type="button" class="style-swatch" data-style="green" aria-label="Green"></button>
-        <button type="button" class="style-swatch" data-style="pink" aria-label="Pink"></button>
-        <button type="button" class="style-swatch" data-style="orange" aria-label="Orange"></button>
-        <button type="button" class="style-swatch" data-style="purple" aria-label="Purple"></button>
-        <button type="button" class="style-swatch" data-style="coffee" aria-label="Coffee"></button>
-        <button type="button" class="style-swatch" data-style="clear" aria-label="Clear"></button>
-      </div>
+      <button id="new-game-btn">Random</button>
+      <button id="today-btn" class="secondary">Today</button>
+      <button id="reset-pieces-btn" class="secondary">Reset</button>
     </div>
     <div id="status"></div>
   </div>
@@ -42,12 +31,9 @@
         <div id="calendar-grid"></div>
       </div>
       <div id="calendar-menu">
-        <div id="calendar-menu-title">Select a date</div>
-        <div class="calendar-menu-row">
-          <button type="button" class="cal-action" data-mark="heart">❤</button>
-          <button type="button" class="cal-action" data-mark="star">★</button>
-        </div>
-        <div class="calendar-menu-row">
+        <div class="calendar-menu-row marks-row">
+          <button type="button" class="cal-action cal-toggle" data-mark="heart">❤</button>
+          <button type="button" class="cal-action cal-toggle" data-mark="star">★</button>
           <button type="button" id="cal-restore" class="cal-action wide">Restore</button>
         </div>
         <div class="calendar-menu-row">
@@ -63,23 +49,26 @@
 </div>
 
 <div id="app">
-  <div id="pieces-panel-left">
-    <div class="panel-header">
-      <h2>Pieces</h2>
-    </div>
-    <div id="pieces-container-left"></div>
-  </div>
   <div id="board-column">
     <div id="board-container">
       <div id="board"></div>
     </div>
   </div>
-  <div id="pieces-panel-right">
-    <div class="panel-header">
-      <h2>Pieces</h2>
-    </div>
-    <div id="pieces-container-right"></div>
+  <div id="pieces-panel">
+    <div id="pieces-container"></div>
   </div>
+  <div id="theme-rail">
+    <div id="piece-style">
+      <button type="button" class="style-swatch is-active" data-style="blue" aria-label="Blue"></button>
+      <button type="button" class="style-swatch" data-style="green" aria-label="Green"></button>
+      <button type="button" class="style-swatch" data-style="pink" aria-label="Pink"></button>
+      <button type="button" class="style-swatch" data-style="orange" aria-label="Orange"></button>
+      <button type="button" class="style-swatch" data-style="purple" aria-label="Purple"></button>
+      <button type="button" class="style-swatch" data-style="coffee" aria-label="Coffee"></button>
+      <button type="button" class="style-swatch" data-style="clear" aria-label="Clear"></button>
+    </div>
+  </div>
+</div>
 </div>
 
 <!-- 入口脚本：使用 ES module -->

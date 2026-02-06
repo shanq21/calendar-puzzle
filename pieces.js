@@ -406,66 +406,51 @@ function updatePieceOutline(piece) {
   
   // ========= 3. 对外：初始排布 & cell 列表 =========
   
-export function layoutPiecesInitial(leftContainer, rightContainer) {
-  const leftRect = leftContainer.getBoundingClientRect();
-  const rightRect = rightContainer ? rightContainer.getBoundingClientRect() : null;
-  const maxWidthLeft = leftRect.width || 360;
-  const maxWidthRight = rightRect ? rightRect.width || 360 : 0;
+export function layoutPiecesInitial(container) {
+  const rect = container.getBoundingClientRect();
+  const maxWidth = rect.width || 520;
 
-  const leftPieces = [];
-  const rightPieces = [];
-  const half = Math.ceil(pieces.length / 2);
-  pieces.forEach((p, i) => {
-    if (!rightContainer || i < half) leftPieces.push(p);
-    else rightPieces.push(p);
+  let cursorX = 10;
+  let cursorY = 10;
+  let rowHeight = 0;
+  const gapX = 10;
+  const gapY = 10;
+
+  pieces.forEach(piece => {
+    if (piece.element.parentElement !== container) {
+      container.appendChild(piece.element);
+    }
+    piece.rotation = 0;
+    piece.gx = null;
+    piece.gy = null;
+    piece.isOnBoard = false;
+    piece.lastValid = null;
+    piece.element.classList.remove('selected', 'on-board');
+
+    layoutPieceBlocks(piece);
+
+    const widthPx  = piece.widthCells  * cellSize;
+    const heightPx = piece.heightCells * cellSize;
+
+    if (cursorX + widthPx > maxWidth - 10) {
+      cursorX = 10;
+      cursorY += rowHeight + gapY;
+      rowHeight = 0;
+    }
+
+    piece.left = cursorX;
+    piece.top  = cursorY;
+    piece.element.style.left = piece.left + 'px';
+    piece.element.style.top  = piece.top  + 'px';
+
+    cursorX += widthPx + gapX;
+    rowHeight = Math.max(rowHeight, heightPx);
   });
 
-  function layoutGroup(group, container, maxWidth) {
-    let cursorX = 10;
-    let cursorY = 10;
-    let rowHeight = 0;
-    const gapX = 10;
-    const gapY = 10;
-
-    group.forEach(piece => {
-      if (piece.element.parentElement !== container) {
-        container.appendChild(piece.element);
-      }
-      piece.rotation = 0;
-      piece.gx = null;
-      piece.gy = null;
-      piece.isOnBoard = false;
-      piece.lastValid = null;
-      piece.element.classList.remove('selected', 'on-board');
-
-      layoutPieceBlocks(piece);
-
-      const widthPx  = piece.widthCells  * cellSize;
-      const heightPx = piece.heightCells * cellSize;
-
-      if (cursorX + widthPx > maxWidth - 10) {
-        cursorX = 10;
-        cursorY += rowHeight + gapY;
-        rowHeight = 0;
-      }
-
-      piece.left = cursorX;
-      piece.top  = cursorY;
-      piece.element.style.left = piece.left + 'px';
-      piece.element.style.top  = piece.top  + 'px';
-
-      cursorX += widthPx + gapX;
-      rowHeight = Math.max(rowHeight, heightPx);
-    });
-
-    const neededHeight = cursorY + rowHeight + 10;
-    const finalHeight = Math.max(320, neededHeight);
-    container.style.height = finalHeight + 'px';
-    container.style.minHeight = finalHeight + 'px';
-  }
-
-  layoutGroup(leftPieces, leftContainer, maxWidthLeft);
-  if (rightContainer) layoutGroup(rightPieces, rightContainer, maxWidthRight);
+  const neededHeight = cursorY + rowHeight + 10;
+  const finalHeight = Math.max(360, neededHeight);
+  container.style.height = finalHeight + 'px';
+  container.style.minHeight = finalHeight + 'px';
 
   clearGhost();
   lastGhostTarget = null;
