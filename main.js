@@ -20,8 +20,7 @@ import {
   } from './pieces.js';
   
   const boardEl         = document.getElementById('board');
-  const piecesContainerLeft = document.getElementById('pieces-container-left');
-  const piecesContainerRight = document.getElementById('pieces-container-right');
+  const piecesContainer = document.getElementById('pieces-container');
   const statusEl        = document.getElementById('status');
   const targetTextEl    = document.getElementById('target-text');
   const calendarTitle   = document.getElementById('calendar-title');
@@ -270,7 +269,7 @@ import {
     updateTargetUI();
     markHolesForTarget(target);
     renderCalendar(target.year, target.monthIndex);
-    layoutPiecesInitial(piecesContainerLeft, piecesContainerRight);
+    layoutPiecesInitial(piecesContainer);
     setStatus('');
   }
 
@@ -278,6 +277,14 @@ import {
     selectedDate = dateKey(year, monthIndex, day);
     if (calMenuTitle) {
       calMenuTitle.textContent = `Selected: ${months[monthIndex]} ${day}, ${year}`;
+    }
+    const mark = dateMarks.get(selectedDate) || { heart: false, star: false };
+    document.querySelectorAll('.cal-toggle').forEach(el => el.classList.remove('is-active'));
+    if (mark.heart) {
+      document.querySelector('.cal-toggle[data-mark="heart"]')?.classList.add('is-active');
+    }
+    if (mark.star) {
+      document.querySelector('.cal-toggle[data-mark="star"]')?.classList.add('is-active');
     }
     renderCalendar(calendarView.year, calendarView.monthIndex);
   }
@@ -382,7 +389,7 @@ import {
   // ========= 初始化 =========
   
   initBoard(boardEl);
-  buildPieces(piecesContainerLeft);
+  buildPieces(piecesContainer);
   const initialStyle = document.querySelector('.style-swatch.is-active')?.getAttribute('data-style') || 'blue';
   setPieceStyle(initialStyle);
   attachPieceEvents();
@@ -391,14 +398,17 @@ import {
   loadSolutions();
   useToday(); // default to today
   renderCalendar(target.year, target.monthIndex);
-  layoutPiecesInitial(piecesContainerLeft, piecesContainerRight);
+  layoutPiecesInitial(piecesContainer);
   
   // 按钮事件
   document.getElementById('new-game-btn').addEventListener('click', pickRandomDate);
   document.getElementById('today-btn').addEventListener('click', useToday);
-  document.getElementById('check-btn').addEventListener('click', checkVictory);
+  const checkBtn = document.getElementById('check-btn');
+  if (checkBtn) {
+    checkBtn.addEventListener('click', checkVictory);
+  }
   document.getElementById('reset-pieces-btn').addEventListener('click', () => {
-    layoutPiecesInitial(piecesContainerLeft, piecesContainerRight);
+    layoutPiecesInitial(piecesContainer);
     setStatus('');
   });
 
@@ -451,6 +461,13 @@ import {
       dateMarks.set(selectedDate, current);
       saveMarks();
       renderCalendar(calendarView.year, calendarView.monthIndex);
+      document.querySelectorAll('.cal-toggle').forEach(el => el.classList.remove('is-active'));
+      if (current.heart) {
+        document.querySelector('.cal-toggle[data-mark="heart"]')?.classList.add('is-active');
+      }
+      if (current.star) {
+        document.querySelector('.cal-toggle[data-mark="star"]')?.classList.add('is-active');
+      }
     });
   });
 
