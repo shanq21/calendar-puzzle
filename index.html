@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Perpetual Calendar Puzzle</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="top-panel">
+  <div id="title-block">
+    <h1>Perpetual Calendar Puzzle</h1>
+    <div id="target-text"></div>
+  </div>
+  <div id="controls">
+    <button id="new-game-btn">New random date</button>
+    <button id="today-btn" class="secondary">Use today</button>
+    <button id="check-btn" class="secondary">Check</button>
+    <button id="reset-pieces-btn" class="secondary">Reset pieces</button>
+  </div>
+  <div id="status"></div>
+</div>
+
+<div id="app">
+  <div id="board-column">
+    <div id="board-container">
+      <div id="board"></div>
+      <div id="year-label"></div>
+    </div>
+    <div id="tip-text">
+      Tip: 拖动拼板，按 <b>R</b> 或点小圆钮旋转；把除目标月/日/星期外的格子全盖住。
+    </div>
+  </div>
+  <div id="pieces-panel">
+    <div class="panel-header">
+      <h2>Pieces</h2>
+    </div>
+    <div id="pieces-container"></div>
+  </div>
+</div>
+
+<!-- 入口脚本：使用 ES module -->
+<script type="module" src="main.js"></script>
+</body>
+</html>
