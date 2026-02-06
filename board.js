@@ -11,16 +11,14 @@ export const cellByGrid = new Map();
 export const holeIds    = { monthId: null, dayId: null, weekdayId: null };
 
 let boardElement      = null;
-let yearLabelElement  = null;
 let ghostLayer        = null;
 
 function gridKey(gx, gy) {
   return `${gx},${gy}`;
 }
 
-export function initBoard(boardEl, yearEl) {
-  boardElement     = boardEl;
-  yearLabelElement = yearEl;
+export function initBoard(boardEl) {
+  boardElement = boardEl;
   buildBoard();
 }
 
@@ -90,10 +88,6 @@ function createCell(id, type, label, gx, gy) {
   boardCells.push(info);
   cellById.set(id, info);
   cellByGrid.set(gridKey(gx, gy), info);
-}
-
-export function updateYearLabel(year) {
-  if (yearLabelElement) yearLabelElement.textContent = String(year);
 }
 
 export function markHolesForTarget(target) {

@@ -9,6 +9,17 @@ import {
   } from './board.js';
   
 export const pieces = [];
+let zCounter = 30;
+
+const STYLE_PRESETS = {
+  blue:   { rgb: '150 210 255', alpha: 0.72 },
+  green:  { rgb: '154 226 190', alpha: 0.72 },
+  pink:   { rgb: '247 167 210', alpha: 0.72 },
+  orange: { rgb: '247 188 132', alpha: 0.72 },
+  purple: { rgb: '194 153 232', alpha: 0.72 },
+  coffee: { rgb: '188 132 92', alpha: 0.72 },
+  clear:  { rgb: '220 235 255', alpha: 0.45 }
+};
 
 const pieceColors = [
   '239 111 108',
@@ -22,6 +33,7 @@ const pieceColors = [
   '233 125 195',
   '205 145 108'
 ];
+
   
   // ========= 1. 形状与旋转 =========
   
@@ -90,7 +102,7 @@ const pieceColors = [
   
   // ========= 2. DOM 构建 =========
   
-  export function buildPieces(piecesContainer) {
+export function buildPieces(piecesContainer) {
     piecesContainer.innerHTML = '';
     pieces.length = 0;
   
@@ -98,11 +110,49 @@ const pieceColors = [
       const pieceEl = document.createElement('div');
       pieceEl.className = 'piece';
       pieceEl.dataset.id = String(index);
-      pieceEl.style.setProperty('--piece-rgb', pieceColors[index % pieceColors.length]);
       pieceEl.style.position = 'absolute';
       pieceEl.style.left = '0px';
       pieceEl.style.top  = '0px';
-  
+
+      const outlineSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      outlineSvg.classList.add('piece-outline');
+      const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      const grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+      const gradId = `piece-grad-${index}`;
+      grad.setAttribute('id', gradId);
+      grad.setAttribute('x1', '0');
+      grad.setAttribute('y1', '0');
+      grad.setAttribute('x2', '1');
+      grad.setAttribute('y2', '1');
+      const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+      const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+      const stop3 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+      stop1.setAttribute('offset', '0%');
+      stop2.setAttribute('offset', '55%');
+      stop3.setAttribute('offset', '100%');
+      grad.appendChild(stop1);
+      grad.appendChild(stop2);
+      grad.appendChild(stop3);
+      defs.appendChild(grad);
+
+      const clipPath = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
+      const clipId = `piece-clip-${index}`;
+      clipPath.setAttribute('id', clipId);
+      const clipPathShape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      clipPathShape.classList.add('piece-clip-path');
+      clipPath.appendChild(clipPathShape);
+      defs.appendChild(clipPath);
+
+      outlineSvg.appendChild(defs);
+      const fillPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      fillPath.classList.add('piece-fill-path');
+      const strokePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      strokePath.classList.add('piece-stroke-path');
+      strokePath.setAttribute('clip-path', `url(#${clipId})`);
+      outlineSvg.appendChild(fillPath);
+      outlineSvg.appendChild(strokePath);
+      pieceEl.appendChild(outlineSvg);
+
       const blockEls = [];
       shape.forEach(() => {
         const b = document.createElement('div');
@@ -125,6 +175,12 @@ const pieceColors = [
         element: pieceEl,
         blockEls,
         rotateBtn,
+        outlineSvg,
+        fillPath,
+        strokePath,
+        clipPathShape,
+        gradId,
+        gradStops: [stop1, stop2, stop3],
         left: 0,
         top: 0,
         gx: null,
@@ -137,9 +193,22 @@ const pieceColors = [
       };
   
       layoutPieceBlocks(piece);
+      updatePieceGradient(piece);
+      piece.element.style.zIndex = String(zCounter++);
       pieces.push(piece);
     });
   }
+
+export function setPieceStyle(styleName) {
+  const preset = STYLE_PRESETS[styleName] || STYLE_PRESETS.blue;
+  document.documentElement.style.setProperty('--piece-rgb', preset.rgb);
+  document.documentElement.style.setProperty('--piece-alpha', String(preset.alpha));
+  pieces.forEach(piece => {
+    piece.element.style.setProperty('--piece-rgb', preset.rgb);
+    piece.element.style.setProperty('--piece-alpha', String(preset.alpha));
+    updatePieceGradient(piece);
+  });
+}
   
   /**
    * 根据 piece.rotation 对内部 block 重排：
@@ -152,20 +221,188 @@ const pieceColors = [
     piece.rotatedBlocks = blocks;
     piece.widthCells = width;
     piece.heightCells = height;
-  
+
     const el = piece.element;
     el.style.width  = (width * cellSize) + 'px';
     el.style.height = (height * cellSize) + 'px';
-  
+
+    updatePieceOutline(piece);
+    updatePieceGradient(piece);
+
     blocks.forEach((b, i) => {
       const blockEl = piece.blockEls[i];
       blockEl.style.left = (b.x * cellSize) + 'px';
       blockEl.style.top  = (b.y * cellSize) + 'px';
+      blockEl.classList.remove('corner-tl', 'corner-tr', 'corner-bl', 'corner-br');
+    });
+
+    const blockSet = new Set(blocks.map(b => `${b.x},${b.y}`));
+    blocks.forEach((b, i) => {
+      const blockEl = piece.blockEls[i];
+      const up = blockSet.has(`${b.x},${b.y - 1}`);
+      const down = blockSet.has(`${b.x},${b.y + 1}`);
+      const left = blockSet.has(`${b.x - 1},${b.y}`);
+      const right = blockSet.has(`${b.x + 1},${b.y}`);
+
+      if (!up && !left) blockEl.classList.add('corner-tl');
+      if (!up && !right) blockEl.classList.add('corner-tr');
+      if (!down && !left) blockEl.classList.add('corner-bl');
+      if (!down && !right) blockEl.classList.add('corner-br');
     });
   
     // 旋转只通过 block 重排体现，不再用 transform: rotate
     el.style.transform = 'none';
   }
+
+function updatePieceGradient(piece) {
+  const rgb = getComputedStyle(piece.element).getPropertyValue('--piece-rgb').trim();
+  if (!rgb) return;
+  const [r, g, b] = rgb.split(' ').map(n => parseInt(n, 10));
+  if ([r, g, b].some(n => Number.isNaN(n))) return;
+  const alpha = parseFloat(getComputedStyle(piece.element).getPropertyValue('--piece-alpha')) || 0.86;
+
+  function darken(f) {
+    return `rgb(${Math.max(0, Math.round(r * f))} ${Math.max(0, Math.round(g * f))} ${Math.max(0, Math.round(b * f))})`;
+  }
+
+  const isDragging = piece.element.classList.contains('dragging');
+  const isHover = piece.element.classList.contains('hovering');
+  let fillAlpha = Math.max(0, alpha - 0.08);
+  if (isHover) fillAlpha = Math.min(1, alpha + 0.02);
+  if (isDragging) fillAlpha = Math.min(1, alpha + 0.12);
+
+  const fillRgb = `rgb(${r} ${g} ${b})`;
+  piece.fillPath.setAttribute('fill', fillRgb);
+  piece.fillPath.setAttribute('fill-opacity', String(fillAlpha));
+  piece.strokePath.setAttribute('stroke', darken(0.9));
+  piece.strokePath.setAttribute('stroke-opacity', '0.6');
+}
+
+function updatePieceOutline(piece) {
+  const outline = piece.outlineSvg;
+  const fillPath = piece.fillPath;
+  const strokePath = piece.strokePath;
+  const clipPathShape = piece.clipPathShape;
+  const widthPx = piece.widthCells * cellSize;
+  const heightPx = piece.heightCells * cellSize;
+
+  outline.setAttribute('width', String(widthPx));
+  outline.setAttribute('height', String(heightPx));
+  outline.setAttribute('viewBox', `0 0 ${widthPx} ${heightPx}`);
+
+  const blocks = piece.rotatedBlocks;
+  if (!blocks || !blocks.length) {
+    fillPath.setAttribute('d', '');
+    strokePath.setAttribute('d', '');
+    clipPathShape.setAttribute('d', '');
+    return;
+  }
+
+  const blockSet = new Set(blocks.map(b => `${b.x},${b.y}`));
+  const edges = new Map();
+
+  function addEdge(x1, y1, x2, y2) {
+    const k = `${x1},${y1}`;
+    const list = edges.get(k) || [];
+    list.push({ x1, y1, x2, y2 });
+    edges.set(k, list);
+  }
+
+  for (const b of blocks) {
+    const x = b.x;
+    const y = b.y;
+    if (!blockSet.has(`${x},${y - 1}`)) {
+      addEdge(x, y, x + 1, y);
+    }
+    if (!blockSet.has(`${x + 1},${y}`)) {
+      addEdge(x + 1, y, x + 1, y + 1);
+    }
+    if (!blockSet.has(`${x},${y + 1}`)) {
+      addEdge(x + 1, y + 1, x, y + 1);
+    }
+    if (!blockSet.has(`${x - 1},${y}`)) {
+      addEdge(x, y + 1, x, y);
+    }
+  }
+
+  const startKey = edges.keys().next().value;
+  if (!startKey) {
+    path.setAttribute('d', '');
+    return;
+  }
+
+  const [sx, sy] = startKey.split(',').map(Number);
+  let cx = sx;
+  let cy = sy;
+  const points = [{ x: cx, y: cy }];
+  let guard = 0;
+
+  while (guard++ < 5000) {
+    const list = edges.get(`${cx},${cy}`);
+    if (!list || list.length === 0) break;
+    const edge = list.shift();
+    cx = edge.x2;
+    cy = edge.y2;
+    points.push({ x: cx, y: cy });
+    if (cx === sx && cy === sy) break;
+  }
+
+  if (points.length < 3) {
+    path.setAttribute('d', '');
+    return;
+  }
+
+  const d = points
+    .map(p => ({ x: p.x * cellSize, y: p.y * cellSize }));
+
+  const rBase = Math.min(12, Math.max(6, Math.round(cellSize * 0.24)));
+  const n = d.length - 1; // last point == first
+  let pathD = '';
+
+  function normDir(a, b) {
+    const dx = Math.sign(b.x - a.x);
+    const dy = Math.sign(b.y - a.y);
+    return { x: dx, y: dy };
+  }
+
+  for (let i = 0; i < n; i++) {
+    const prev = d[(i - 1 + n) % n];
+    const curr = d[i];
+    const next = d[(i + 1) % n];
+    const v1 = normDir(prev, curr);
+    const v2 = normDir(curr, next);
+
+    const isCorner = v1.x !== v2.x || v1.y !== v2.y;
+    if (!isCorner) {
+      if (!pathD) {
+        pathD = `M${curr.x} ${curr.y}`;
+      } else {
+        pathD += ` L${curr.x} ${curr.y}`;
+      }
+      continue;
+    }
+
+    const r = rBase;
+    const p1 = { x: curr.x - v1.x * r, y: curr.y - v1.y * r };
+    const p2 = { x: curr.x + v2.x * r, y: curr.y + v2.y * r };
+
+    if (!pathD) {
+      pathD = `M${p1.x} ${p1.y}`;
+    } else {
+      pathD += ` L${p1.x} ${p1.y}`;
+    }
+
+    const cross = v1.x * v2.y - v1.y * v2.x;
+    const sweep = cross < 0 ? 0 : 1;
+    pathD += ` A${r} ${r} 0 0 ${sweep} ${p2.x} ${p2.y}`;
+  }
+
+  pathD += ' Z';
+
+  fillPath.setAttribute('d', pathD);
+  strokePath.setAttribute('d', pathD);
+  clipPathShape.setAttribute('d', pathD);
+}
   
   // ========= 3. 对外：初始排布 & cell 列表 =========
   
@@ -330,6 +567,7 @@ function computeSnapGrid(piece) {
       piece.gy = null;
       piece.isOnBoard = false;
       piece.element.classList.remove('on-board');
+      updatePieceGradient(piece);
       clearGhost();
       lastGhostTarget = null;
       return;
@@ -342,23 +580,14 @@ function computeSnapGrid(piece) {
       piece.lastValid = { gx, gy, rotation: piece.rotation };
       piece.element.classList.add('on-board');
       applyPieceTransform(piece);
+      updatePieceGradient(piece);
     } else {
-      // 不合法：如果有 lastValid，则回到上一次合法位置
-      if (piece.lastValid) {
-        const lv = piece.lastValid;
-        piece.gx = lv.gx;
-        piece.gy = lv.gy;
-        piece.rotation = lv.rotation;
-        piece.isOnBoard = true;
-        piece.element.classList.add('on-board');
-        layoutPieceBlocks(piece);
-        applyPieceTransform(piece);
-      } else {
-        piece.gx = null;
-        piece.gy = null;
-        piece.isOnBoard = false;
-        piece.element.classList.remove('on-board');
-      }
+      // 不合法：保持当前位置，不回弹
+      piece.gx = null;
+      piece.gy = null;
+      piece.isOnBoard = false;
+      piece.element.classList.remove('on-board');
+      updatePieceGradient(piece);
     }
   
     clearGhost();
@@ -417,8 +646,13 @@ function onPointerDownPiece(ev, piece) {
     }
   
     activePiece = piece;
+    piece.element.style.zIndex = String(zCounter++);
     pieces.forEach(p => p.element.classList.remove('selected'));
     piece.element.classList.add('selected');
+    piece.isOnBoard = false;
+    piece.element.classList.remove('on-board');
+    piece.element.classList.add('dragging');
+    updatePieceGradient(piece);
   
     const el = piece.element;
     const parentOrigin = getOffsetParentOrigin(el);
@@ -454,57 +688,72 @@ function onPointerMove(ev) {
     ev.preventDefault();
   }
   
-  function onPointerUp(ev) {
+function onPointerUp(ev) {
     if (!activePiece) return;
+    activePiece.element.classList.remove('dragging');
     snapPieceToBoard(activePiece);
   
     const isTouch = ev.type.startsWith('touch');
     window.removeEventListener(isTouch ? 'touchmove' : 'mousemove', onPointerMove);
     window.removeEventListener(isTouch ? 'touchend'  : 'mouseup',   onPointerUp);
     activePiece = null;
-  }
+}
   
   // ========= 7. 旋转 =========
   
   function rotatePiece(piece) {
     const newRot = (piece.rotation + 1) % 4;
-  
-    if (piece.isOnBoard && piece.gx != null && piece.gy != null) {
+
+    const wasOnBoard = piece.isOnBoard && piece.gx != null && piece.gy != null;
+    piece.rotation = newRot;
+    layoutPieceBlocks(piece);
+
+    if (wasOnBoard) {
       if (isPlacementValid(piece, piece.gx, piece.gy, newRot)) {
-        piece.rotation = newRot;
-        layoutPieceBlocks(piece);
         piece.lastValid = { gx: piece.gx, gy: piece.gy, rotation: newRot };
         applyPieceTransform(piece);
       } else {
-        // 不合法就不转（未来可以做“绕中心微调”）
-        return;
+        piece.gx = null;
+        piece.gy = null;
+        piece.isOnBoard = false;
+        piece.element.classList.remove('on-board');
       }
-    } else {
-      // 不在 board 上，仅修改内部布局，不动 left/top
-      piece.rotation = newRot;
-      layoutPieceBlocks(piece);
     }
-  
+    updatePieceGradient(piece);
+
     clearGhost();
     lastGhostTarget = null;
   }
   
   // ========= 8. 事件绑定入口 =========
   
-  export function attachPieceEvents() {
-    pieces.forEach(piece => {
-      const el = piece.element;
-      el.addEventListener('mousedown', ev => onPointerDownPiece(ev, piece));
-      el.addEventListener('touchstart', ev => onPointerDownPiece(ev, piece), { passive: false });
+export function attachPieceEvents() {
+  pieces.forEach(piece => {
+    const el = piece.element;
+    el.addEventListener('mousedown', ev => onPointerDownPiece(ev, piece));
+    el.addEventListener('touchstart', ev => onPointerDownPiece(ev, piece), { passive: false });
+    el.addEventListener('mouseenter', () => {
+      piece.element.classList.add('hovering');
+      updatePieceGradient(piece);
     });
-  
-    window.addEventListener('keydown', ev => {
-      if (ev.key === 'r' || ev.key === 'R') {
-        if (activePiece) {
-          rotatePiece(activePiece);
-          ev.preventDefault();
-        }
+    el.addEventListener('mouseleave', () => {
+      piece.element.classList.remove('hovering');
+      updatePieceGradient(piece);
+    });
+    el.addEventListener('dblclick', ev => {
+      if (ev.target.classList.contains('rotate-btn')) return;
+      rotatePiece(piece);
+      ev.preventDefault();
+    });
+  });
+
+  window.addEventListener('keydown', ev => {
+    if (ev.key === 'r' || ev.key === 'R' || ev.key === ' ') {
+      if (activePiece) {
+        rotatePiece(activePiece);
+        ev.preventDefault();
       }
-    });
-  }
+    }
+  });
+}
   
