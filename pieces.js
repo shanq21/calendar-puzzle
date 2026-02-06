@@ -16,23 +16,11 @@ const STYLE_PRESETS = {
   green:  { rgb: '154 226 190', alpha: 0.72 },
   pink:   { rgb: '247 167 210', alpha: 0.72 },
   orange: { rgb: '247 188 132', alpha: 0.72 },
-  purple: { rgb: '194 153 232', alpha: 0.72 },
+  purple: { rgb: '206 178 238', alpha: 0.72 },
   coffee: { rgb: '188 132 92', alpha: 0.72 },
   clear:  { rgb: '220 235 255', alpha: 0.45 }
 };
-
-const pieceColors = [
-  '239 111 108',
-  '243 156 77',
-  '242 201 76',
-  '141 204 107',
-  '82 193 169',
-  '90 165 255',
-  '112 126 255',
-  '158 120 235',
-  '233 125 195',
-  '205 145 108'
-];
+let currentStyle = STYLE_PRESETS.blue;
 
   
   // ========= 1. 形状与旋转 =========
@@ -117,24 +105,6 @@ export function buildPieces(piecesContainer) {
       const outlineSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       outlineSvg.classList.add('piece-outline');
       const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-      const grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
-      const gradId = `piece-grad-${index}`;
-      grad.setAttribute('id', gradId);
-      grad.setAttribute('x1', '0');
-      grad.setAttribute('y1', '0');
-      grad.setAttribute('x2', '1');
-      grad.setAttribute('y2', '1');
-      const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-      const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-      const stop3 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-      stop1.setAttribute('offset', '0%');
-      stop2.setAttribute('offset', '55%');
-      stop3.setAttribute('offset', '100%');
-      grad.appendChild(stop1);
-      grad.appendChild(stop2);
-      grad.appendChild(stop3);
-      defs.appendChild(grad);
-
       const clipPath = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
       const clipId = `piece-clip-${index}`;
       clipPath.setAttribute('id', clipId);
@@ -179,8 +149,6 @@ export function buildPieces(piecesContainer) {
         fillPath,
         strokePath,
         clipPathShape,
-        gradId,
-        gradStops: [stop1, stop2, stop3],
         left: 0,
         top: 0,
         gx: null,
@@ -201,13 +169,45 @@ export function buildPieces(piecesContainer) {
 
 export function setPieceStyle(styleName) {
   const preset = STYLE_PRESETS[styleName] || STYLE_PRESETS.blue;
-  document.documentElement.style.setProperty('--piece-rgb', preset.rgb);
-  document.documentElement.style.setProperty('--piece-alpha', String(preset.alpha));
+  currentStyle = preset;
   pieces.forEach(piece => {
-    piece.element.style.setProperty('--piece-rgb', preset.rgb);
-    piece.element.style.setProperty('--piece-alpha', String(preset.alpha));
+    piece.element.dataset.rgb = preset.rgb;
+    piece.element.dataset.alpha = String(preset.alpha);
     updatePieceGradient(piece);
   });
+}
+
+export function captureSolution() {
+  return pieces.map(p => ({
+    id: p.id,
+    gx: p.gx,
+    gy: p.gy,
+    rotation: p.rotation
+  }));
+}
+
+export function applySolution(solution) {
+  if (!Array.isArray(solution)) return false;
+  const byId = new Map(solution.map(s => [s.id, s]));
+  pieces.forEach(p => {
+    const s = byId.get(p.id);
+    if (!s) return;
+    p.rotation = s.rotation;
+    p.gx = s.gx;
+    p.gy = s.gy;
+    p.isOnBoard = p.gx != null && p.gy != null;
+    p.element.classList.toggle('on-board', p.isOnBoard);
+    layoutPieceBlocks(p);
+    if (p.isOnBoard) applyPieceTransform(p);
+    updatePieceGradient(p);
+  });
+  return true;
+}
+
+export function onBoardStateChanged() {
+  if (typeof window !== 'undefined' && window.onBoardStateChanged) {
+    window.onBoardStateChanged();
+  }
 }
   
   /**
@@ -255,11 +255,11 @@ export function setPieceStyle(styleName) {
   }
 
 function updatePieceGradient(piece) {
-  const rgb = getComputedStyle(piece.element).getPropertyValue('--piece-rgb').trim();
-  if (!rgb) return;
-  const [r, g, b] = rgb.split(' ').map(n => parseInt(n, 10));
+  const rgbRaw = piece.element.dataset.rgb || currentStyle.rgb;
+  const alphaRaw = piece.element.dataset.alpha || String(currentStyle.alpha);
+  const [r, g, b] = rgbRaw.split(' ').map(n => parseInt(n, 10));
   if ([r, g, b].some(n => Number.isNaN(n))) return;
-  const alpha = parseFloat(getComputedStyle(piece.element).getPropertyValue('--piece-alpha')) || 0.86;
+  const alpha = parseFloat(alphaRaw) || 0.86;
 
   function darken(f) {
     return `rgb(${Math.max(0, Math.round(r * f))} ${Math.max(0, Math.round(g * f))} ${Math.max(0, Math.round(b * f))})`;
@@ -406,48 +406,66 @@ function updatePieceOutline(piece) {
   
   // ========= 3. 对外：初始排布 & cell 列表 =========
   
-export function layoutPiecesInitial(piecesContainer) {
-  const rect = piecesContainer.getBoundingClientRect();
-  const maxWidth = rect.width || 420;
-  
+export function layoutPiecesInitial(leftContainer, rightContainer) {
+  const leftRect = leftContainer.getBoundingClientRect();
+  const rightRect = rightContainer ? rightContainer.getBoundingClientRect() : null;
+  const maxWidthLeft = leftRect.width || 360;
+  const maxWidthRight = rightRect ? rightRect.width || 360 : 0;
+
+  const leftPieces = [];
+  const rightPieces = [];
+  const half = Math.ceil(pieces.length / 2);
+  pieces.forEach((p, i) => {
+    if (!rightContainer || i < half) leftPieces.push(p);
+    else rightPieces.push(p);
+  });
+
+  function layoutGroup(group, container, maxWidth) {
     let cursorX = 10;
     let cursorY = 10;
     let rowHeight = 0;
     const gapX = 10;
     const gapY = 10;
-  
-  pieces.forEach(piece => {
+
+    group.forEach(piece => {
+      if (piece.element.parentElement !== container) {
+        container.appendChild(piece.element);
+      }
       piece.rotation = 0;
       piece.gx = null;
       piece.gy = null;
       piece.isOnBoard = false;
       piece.lastValid = null;
       piece.element.classList.remove('selected', 'on-board');
-  
+
       layoutPieceBlocks(piece);
-  
+
       const widthPx  = piece.widthCells  * cellSize;
       const heightPx = piece.heightCells * cellSize;
-  
+
       if (cursorX + widthPx > maxWidth - 10) {
         cursorX = 10;
         cursorY += rowHeight + gapY;
         rowHeight = 0;
       }
-  
+
       piece.left = cursorX;
       piece.top  = cursorY;
       piece.element.style.left = piece.left + 'px';
       piece.element.style.top  = piece.top  + 'px';
-  
-      cursorX += widthPx + gapX;
-    rowHeight = Math.max(rowHeight, heightPx);
-  });
 
-  const neededHeight = cursorY + rowHeight + 10;
-  const finalHeight = Math.max(340, neededHeight);
-  piecesContainer.style.height = finalHeight + 'px';
-  piecesContainer.style.minHeight = finalHeight + 'px';
+      cursorX += widthPx + gapX;
+      rowHeight = Math.max(rowHeight, heightPx);
+    });
+
+    const neededHeight = cursorY + rowHeight + 10;
+    const finalHeight = Math.max(320, neededHeight);
+    container.style.height = finalHeight + 'px';
+    container.style.minHeight = finalHeight + 'px';
+  }
+
+  layoutGroup(leftPieces, leftContainer, maxWidthLeft);
+  if (rightContainer) layoutGroup(rightPieces, rightContainer, maxWidthRight);
 
   clearGhost();
   lastGhostTarget = null;
@@ -568,6 +586,7 @@ function computeSnapGrid(piece) {
       piece.isOnBoard = false;
       piece.element.classList.remove('on-board');
       updatePieceGradient(piece);
+      onBoardStateChanged();
       clearGhost();
       lastGhostTarget = null;
       return;
@@ -581,6 +600,7 @@ function computeSnapGrid(piece) {
       piece.element.classList.add('on-board');
       applyPieceTransform(piece);
       updatePieceGradient(piece);
+      onBoardStateChanged();
     } else {
       // 不合法：保持当前位置，不回弹
       piece.gx = null;
@@ -588,6 +608,7 @@ function computeSnapGrid(piece) {
       piece.isOnBoard = false;
       piece.element.classList.remove('on-board');
       updatePieceGradient(piece);
+      onBoardStateChanged();
     }
   
     clearGhost();
