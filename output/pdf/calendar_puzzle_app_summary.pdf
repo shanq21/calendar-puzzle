@@ -1,0 +1,67 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 2992 >>
+stream
+BT /F2 18 Tf 48 740 Td (Calendar Puzzle App - One-Page Summary) Tj ET
+BT /F2 13 Tf 48 712 Td (What it is) Tj ET
+BT /F1 10.5 Tf 48 693 Td (A browser-based perpetual calendar puzzle game where players place and rotate pieces to cover) Tj ET
+BT /F1 10.5 Tf 48 679 Td (the board while leaving one month, one day, and one weekday visible.) Tj ET
+BT /F1 10.5 Tf 48 663 Td (The app is implemented as a static front-end using HTML, CSS, and JavaScript ES modules.) Tj ET
+BT /F2 13 Tf 48 647 Td (Who it is for) Tj ET
+BT /F1 10.5 Tf 48 628 Td (Primary persona: casual puzzle players and logic game fans who want a quick daily date) Tj ET
+BT /F1 10.5 Tf 48 614 Td (challenge in a browser.) Tj ET
+BT /F2 13 Tf 48 598 Td (What it does) Tj ET
+BT /F1 10.3 Tf 48 579 Td (- Renders a fixed calendar board with month/day/weekday cells and highlights the target holes.) Tj ET
+BT /F1 10.3 Tf 48 565 Td (- Generates a random date target and supports a one-click "Use today" target.) Tj ET
+BT /F1 10.3 Tf 48 551 Td (- Builds ten draggable polyomino-like puzzle pieces from shape definitions.) Tj ET
+BT /F1 10.3 Tf 48 537 Td (- Supports per-piece rotation via button and keyboard shortcut \(R\).) Tj ET
+BT /F1 10.3 Tf 48 523 Td (- Shows ghost previews and snaps pieces to grid positions on the board.) Tj ET
+BT /F1 10.3 Tf 48 509 Td (- Validates placements \(bounds, overlap, and target-hole protection\) and reports status) Tj ET
+BT /F1 10.3 Tf 48 496 Td (messages.) Tj ET
+BT /F2 13 Tf 48 482 Td (How it works \(repo evidence\)) Tj ET
+BT /F1 10.3 Tf 48 463 Td (- UI shell: index.html lays out the board, side panel, controls, status, and pieces container.) Tj ET
+BT /F1 10.3 Tf 48 449 Td (- Board module: board.js builds board cells, indexes cells by id/grid, tracks target hole IDs,) Tj ET
+BT /F1 10.3 Tf 48 436 Td (and updates year label/ghost layer.) Tj ET
+BT /F1 10.3 Tf 48 422 Td (- Piece module: pieces.js defines shapes, computes rotations, handles drag and snap behavior,) Tj ET
+BT /F1 10.3 Tf 48 409 Td (validates legal placement, and binds pointer/keyboard events.) Tj ET
+BT /F1 10.3 Tf 48 395 Td (- Game orchestration: main.js sets target dates, updates UI, triggers board highlighting, and) Tj ET
+BT /F1 10.3 Tf 48 382 Td (runs victory checks against full-board coverage rules.) Tj ET
+BT /F1 10.3 Tf 48 368 Td (- Data flow: control click or date selection -> target state update -> board hole marking ->) Tj ET
+BT /F1 10.3 Tf 48 355 Td (piece interactions -> check action -> status output.) Tj ET
+BT /F1 10.3 Tf 48 341 Td (- Backend services/API, persistent storage, auth, analytics, CI/CD config: Not found in repo.) Tj ET
+BT /F2 13 Tf 48 327 Td (How to run \(minimal\)) Tj ET
+BT /F1 10.3 Tf 48 308 Td (1. In the repo root, start a static server \(ES modules need HTTP\): python3 -m http.server 8000) Tj ET
+BT /F1 10.3 Tf 48 295 Td (2. Open http://localhost:8000 in a browser.) Tj ET
+BT /F1 10.3 Tf 48 282 Td (3. Click "New random date" or "Use today", place/rotate pieces, then click "Check".) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000257 00000 n 
+0000003300 00000 n 
+0000003370 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+3445
+%%EOF
