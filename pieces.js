@@ -204,6 +204,75 @@ export function applySolution(solution) {
   return true;
 }
 
+function waitNextFrame() {
+  return new Promise(resolve => {
+    window.requestAnimationFrame(() => resolve());
+  });
+}
+
+function waitTransitionEnd(el, duration) {
+  return new Promise(resolve => {
+    let done = false;
+    const timer = window.setTimeout(() => {
+      if (done) return;
+      done = true;
+      resolve();
+    }, duration + 80);
+    const onEnd = () => {
+      if (done) return;
+      done = true;
+      window.clearTimeout(timer);
+      resolve();
+    };
+    el.addEventListener('transitionend', onEnd, { once: true });
+  });
+}
+
+export async function animatePieceToSolutionEntry(entry, options = {}) {
+  if (!entry || entry.id == null) return false;
+  const duration = Number.isFinite(options.duration) ? options.duration : 320;
+  const piece = pieces.find(p => p.id === entry.id);
+  if (!piece) return false;
+
+  const fromLeft = piece.left;
+  const fromTop = piece.top;
+  const targetRotation = Number.isFinite(entry.rotation) ? entry.rotation : piece.rotation;
+
+  piece.rotation = targetRotation;
+  piece.gx = entry.gx;
+  piece.gy = entry.gy;
+  piece.isOnBoard = piece.gx != null && piece.gy != null;
+  piece.element.classList.toggle('on-board', piece.isOnBoard);
+  layoutPieceBlocks(piece);
+  if (piece.isOnBoard) {
+    applyPieceTransform(piece);
+  }
+  updatePieceGradient(piece);
+
+  if (!piece.isOnBoard) return true;
+
+  const targetLeft = piece.left;
+  const targetTop = piece.top;
+  const el = piece.element;
+
+  el.style.transition = 'none';
+  el.style.left = `${fromLeft}px`;
+  el.style.top = `${fromTop}px`;
+  el.classList.add('animating');
+
+  await waitNextFrame();
+  await waitNextFrame();
+
+  el.style.transition = `left ${duration}ms cubic-bezier(0.22, 0.68, 0, 1), top ${duration}ms cubic-bezier(0.22, 0.68, 0, 1)`;
+  el.style.left = `${targetLeft}px`;
+  el.style.top = `${targetTop}px`;
+
+  await waitTransitionEnd(el, duration);
+  el.style.transition = '';
+  el.classList.remove('animating');
+  return true;
+}
+
 export function onBoardStateChanged() {
   if (typeof window !== 'undefined' && window.onBoardStateChanged) {
     window.onBoardStateChanged();

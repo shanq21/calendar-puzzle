@@ -240,6 +240,12 @@ button:active {
     width: auto;
 }
 
+.board-action[disabled] {
+    opacity: 0.65;
+    cursor: wait;
+    transform: none;
+}
+
 .board-hint {
     background: #eef5ff;
     color: #2f4f77;
@@ -675,6 +681,11 @@ button:active {
 
 .piece.selected {
     z-index: 80;
+}
+
+.piece.animating {
+    pointer-events: none;
+    z-index: 95;
 }
 
 .rotate-btn {
