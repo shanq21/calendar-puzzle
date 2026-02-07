@@ -4,6 +4,23 @@ import { boardCells, holeIds, cellByGrid } from './board.js';
 const BOARD_W = 7;
 const BOARD_H = 8;
 
+function shuffleInPlace(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = arr[i];
+    arr[i] = arr[j];
+    arr[j] = t;
+  }
+}
+
+function encodeSolution(solution) {
+  return solution
+    .slice()
+    .sort((a, b) => a.id - b.id)
+    .map(s => `${s.id}@${s.gx},${s.gy},${s.rotation}`)
+    .join('|');
+}
+
 function rotatePoint(point, times) {
   let x = point.x;
   let y = point.y;
@@ -162,7 +179,10 @@ function componentAreaPrune(targetCells, neighborsByIndex, allMask, occupiedMask
   return false;
 }
 
-export function solvePuzzleDFS(pieces) {
+export function solvePuzzleDFS(pieces, options = {}) {
+  const excludedKeys = options.excludeSolutionKeys instanceof Set
+    ? options.excludeSolutionKeys
+    : new Set();
   const { targetCells, byGrid, indexById } = buildTargetCellIndex();
   const totalCells = targetCells.length;
   const allMask = (1n << BigInt(totalCells)) - 1n;
@@ -195,7 +215,11 @@ export function solvePuzzleDFS(pieces) {
   const assignment = [];
 
   function dfs(occupiedMask, remainingIds) {
-    if (occupiedMask === allMask && remainingIds.length === 0) return true;
+    if (occupiedMask === allMask && remainingIds.length === 0) {
+      const key = encodeSolution(assignment);
+      if (excludedKeys.has(key)) return false;
+      return true;
+    }
     if (remainingIds.length === 0) return false;
 
     const remainingSizes = remainingIds.map(id => pieceSizes.get(id));
@@ -204,6 +228,7 @@ export function solvePuzzleDFS(pieces) {
     const remainingEmpty = getRemainingEmptyIndices(allMask, occupiedMask, totalCells);
     let pivotCell = -1;
     let pivotCandidates = null;
+    const pivotTies = [];
 
     for (const emptyIdx of remainingEmpty) {
       const bit = 1n << BigInt(emptyIdx);
@@ -220,11 +245,22 @@ export function solvePuzzleDFS(pieces) {
       if (pivotCandidates == null || candidates.length < pivotCandidates.length) {
         pivotCell = emptyIdx;
         pivotCandidates = candidates;
+        pivotTies.length = 0;
+        pivotTies.push({ cell: emptyIdx, candidates });
         if (pivotCandidates.length === 1) break;
+      } else if (candidates.length === pivotCandidates.length) {
+        pivotTies.push({ cell: emptyIdx, candidates });
       }
     }
 
+    if (pivotTies.length > 1) {
+      shuffleInPlace(pivotTies);
+      pivotCell = pivotTies[0].cell;
+      pivotCandidates = pivotTies[0].candidates;
+    }
+
     if (pivotCell < 0 || !pivotCandidates) return false;
+    shuffleInPlace(pivotCandidates);
 
     for (const pl of pivotCandidates) {
       if ((pl.mask & occupiedMask) !== 0n) continue;
@@ -258,5 +294,6 @@ export function solvePuzzleDFS(pieces) {
   const ok = dfs(0n, remainingPieceIds);
   if (!ok) return null;
 
-  return assignment;
+  const solution = assignment.slice();
+  return { solution, key: encodeSolution(solution) };
 }
