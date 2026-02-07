@@ -7,6 +7,8 @@ import {
     clearGhost,
     getBoardRect
   } from './board.js';
+// import { playPickupSound, playDropSound, playSnapSound } from './sounds.js';
+import { playSnapSound } from './sounds.js';
   
 export const pieces = [];
 let zCounter = 30;
@@ -231,6 +233,9 @@ function waitTransitionEnd(el, duration) {
 export async function animatePieceToSolutionEntry(entry, options = {}) {
   if (!entry || entry.id == null) return false;
   const duration = Number.isFinite(options.duration) ? options.duration : 320;
+  const shouldPlaySnap = options.playSnapSound === true;
+  const leadMsRaw = Number.isFinite(options.snapLeadMs) ? options.snapLeadMs : 22;
+  const snapLeadMs = Math.max(0, Math.min(duration - 8, leadMsRaw));
   const piece = pieces.find(p => p.id === entry.id);
   if (!piece) return false;
 
@@ -267,9 +272,24 @@ export async function animatePieceToSolutionEntry(entry, options = {}) {
   el.style.left = `${targetLeft}px`;
   el.style.top = `${targetTop}px`;
 
+  let snapTimer = null;
+  let snapPlayed = false;
+  if (shouldPlaySnap) {
+    snapTimer = window.setTimeout(() => {
+      snapPlayed = true;
+      playSnapSound();
+    }, Math.max(0, duration - snapLeadMs));
+  }
+
   await waitTransitionEnd(el, duration);
   el.style.transition = '';
   el.classList.remove('animating');
+  if (snapTimer != null) {
+    window.clearTimeout(snapTimer);
+  }
+  if (shouldPlaySnap && !snapPlayed) {
+    playSnapSound();
+  }
   return true;
 }
 
@@ -643,7 +663,7 @@ function computeSnapGrid(piece) {
       onBoardStateChanged();
       clearGhost();
       lastGhostTarget = null;
-      return;
+      return false;
     }
   
     if (isPlacementValid(piece, gx, gy, piece.rotation)) {
@@ -655,6 +675,9 @@ function computeSnapGrid(piece) {
       applyPieceTransform(piece);
       updatePieceGradient(piece);
       onBoardStateChanged();
+      clearGhost();
+      lastGhostTarget = null;
+      return true;
     } else {
       // 不合法：保持当前位置，不回弹
       piece.gx = null;
@@ -663,10 +686,10 @@ function computeSnapGrid(piece) {
       piece.element.classList.remove('on-board');
       updatePieceGradient(piece);
       onBoardStateChanged();
+      clearGhost();
+      lastGhostTarget = null;
+      return false;
     }
-  
-    clearGhost();
-    lastGhostTarget = null;
   }
   
   /**
@@ -728,6 +751,7 @@ function onPointerDownPiece(ev, piece) {
     piece.element.classList.remove('on-board');
     piece.element.classList.add('dragging');
     updatePieceGradient(piece);
+    // playPickupSound();
   
     const el = piece.element;
     const parentOrigin = getOffsetParentOrigin(el);
@@ -766,7 +790,12 @@ function onPointerMove(ev) {
 function onPointerUp(ev) {
     if (!activePiece) return;
     activePiece.element.classList.remove('dragging');
-    snapPieceToBoard(activePiece);
+    const snappedOnBoard = snapPieceToBoard(activePiece);
+    if (snappedOnBoard) {
+      playSnapSound();
+    } else {
+      // playDropSound();
+    }
   
     const isTouch = ev.type.startsWith('touch');
     window.removeEventListener(isTouch ? 'touchmove' : 'mousemove', onPointerMove);
