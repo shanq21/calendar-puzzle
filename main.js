@@ -56,8 +56,8 @@ import {
   
   function updateTargetUI() {
     targetTextEl.innerHTML = `
-      Target date:<br>
-      <b>${weekdays[target.weekdayIndex]}, ${months[target.monthIndex]} ${target.day}, ${target.year}</b>
+      <span class="target-icon" aria-hidden="true"></span>
+      <span class="target-date">${weekdays[target.weekdayIndex]}, ${months[target.monthIndex]} ${target.day}, ${target.year}</span>
     `;
   }
 
@@ -407,10 +407,19 @@ import {
   if (checkBtn) {
     checkBtn.addEventListener('click', checkVictory);
   }
-  document.getElementById('reset-pieces-btn').addEventListener('click', () => {
+  document.getElementById('clear-btn').addEventListener('click', () => {
     layoutPiecesInitial(piecesContainer);
     setStatus('');
   });
+
+  const calendarSection = document.getElementById('calendar-section');
+  const calendarToggle = document.getElementById('calendar-toggle');
+  if (calendarSection && calendarToggle) {
+    calendarToggle.addEventListener('click', () => {
+      const isCollapsed = calendarSection.classList.toggle('is-collapsed');
+      calendarToggle.setAttribute('aria-expanded', String(!isCollapsed));
+    });
+  }
 
   document.getElementById('piece-style').addEventListener('click', (e) => {
     const btn = e.target.closest('.style-swatch');
