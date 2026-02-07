@@ -11,14 +11,18 @@
   <div id="top-left">
     <div id="title-block">
       <h1>Calendar Puzzle</h1>
+    </div>
+    <div id="target-row">
       <div id="target-text"></div>
+      <button id="calendar-toggle" class="calendar-toggle" aria-expanded="false">Calendar</button>
     </div>
-    <div id="controls">
-      <button id="new-game-btn">Random</button>
-      <button id="today-btn" class="secondary">Today</button>
-      <button id="reset-pieces-btn" class="secondary">Reset</button>
-    </div>
-    <div id="status"></div>
+  </div>
+</div>
+
+<div id="calendar-section" class="is-collapsed">
+  <div class="calendar-controls">
+    <button id="new-game-btn">Random</button>
+    <button id="today-btn" class="secondary">Today</button>
   </div>
   <div id="calendar-panel">
     <div id="calendar-wrap">
@@ -51,8 +55,10 @@
 <div id="app">
   <div id="board-column">
     <div id="board-container">
+      <button id="clear-btn" class="board-clear">Clear</button>
       <div id="board"></div>
     </div>
+    <div id="status"></div>
   </div>
   <div id="pieces-panel">
     <div id="pieces-container"></div>
