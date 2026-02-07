@@ -38,6 +38,11 @@ import {
   const completedDates = new Set();
   const dateMarks = new Map();
   const solutions = new Map();
+  const shownSolveKeysByDate = new Map();
+  const MAX_HINTS = 3;
+  let activeHintSolution = null;
+  let hintUsedCount = 0;
+  const hintedPieceIds = new Set();
   let selectedDate = null;
   let calendarView = { year: target.year, monthIndex: target.monthIndex };
   
@@ -66,6 +71,103 @@ import {
     const mm = String(monthIndex + 1).padStart(2, '0');
     const dd = String(day).padStart(2, '0');
     return `${year}-${mm}-${dd}`;
+  }
+
+  function rotatePoint(point, times) {
+    let x = point.x;
+    let y = point.y;
+    for (let i = 0; i < times; i++) {
+      const nx = -y;
+      const ny = x;
+      x = nx;
+      y = ny;
+    }
+    return { x, y };
+  }
+
+  function getBlocksForRotation(shape, rotation) {
+    const rotated = shape.map(p => rotatePoint(p, rotation));
+    let minX = Infinity;
+    let minY = Infinity;
+    for (const p of rotated) {
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+    }
+    return rotated.map(p => ({ x: p.x - minX, y: p.y - minY }));
+  }
+
+  function getCellsFromPlacement(entry) {
+    if (entry == null || entry.gx == null || entry.gy == null) return [];
+    const piece = pieces.find(p => p.id === entry.id);
+    if (!piece) return [];
+    const blocks = getBlocksForRotation(piece.shape, entry.rotation || 0);
+    return blocks.map(b => ({
+      gx: entry.gx + b.x,
+      gy: entry.gy + b.y
+    }));
+  }
+
+  function updateHintButtonUI() {
+    const hintBtn = document.getElementById('hint-btn');
+    if (!hintBtn) return;
+    if (hintUsedCount >= MAX_HINTS) {
+      hintBtn.textContent = 'Show Answer';
+      hintBtn.classList.add('show-answer');
+      return;
+    }
+    hintBtn.textContent = `Hint (${MAX_HINTS - hintUsedCount})`;
+    hintBtn.classList.remove('show-answer');
+  }
+
+  function resetHintState() {
+    activeHintSolution = null;
+    hintUsedCount = 0;
+    hintedPieceIds.clear();
+    updateHintButtonUI();
+  }
+
+  function getCurrentDateHintSolution() {
+    if (activeHintSolution) return activeHintSolution;
+    const result = solvePuzzleDFS(pieces);
+    if (!result) return null;
+    activeHintSolution = result;
+    return result;
+  }
+
+  function applyHintedPieces() {
+    if (!activeHintSolution) return false;
+    const snapshot = captureSolution().map(s => ({ ...s }));
+    const byId = new Map(snapshot.map(s => [s.id, s]));
+    const solutionById = new Map(activeHintSolution.solution.map(s => [s.id, s]));
+
+    for (const pid of hintedPieceIds) {
+      const solved = solutionById.get(pid);
+      if (solved) byId.set(pid, { ...solved });
+    }
+
+    const hintedOccupied = new Set();
+    for (const pid of hintedPieceIds) {
+      const entry = byId.get(pid);
+      const cells = getCellsFromPlacement(entry);
+      for (const c of cells) {
+        hintedOccupied.add(`${c.gx},${c.gy}`);
+      }
+    }
+
+    byId.forEach((entry, pid) => {
+      if (hintedPieceIds.has(pid)) return;
+      const cells = getCellsFromPlacement(entry);
+      for (const c of cells) {
+        if (hintedOccupied.has(`${c.gx},${c.gy}`)) {
+          entry.gx = null;
+          entry.gy = null;
+          break;
+        }
+      }
+    });
+
+    applySolution(Array.from(byId.values()));
+    return true;
   }
 
   const STORAGE_KEY = 'calendar-puzzle-completions';
@@ -271,6 +373,7 @@ import {
     markHolesForTarget(target);
     renderCalendar(target.year, target.monthIndex);
     layoutPiecesInitial(piecesContainer);
+    resetHintState();
     setStatus('');
   }
 
@@ -418,6 +521,43 @@ import {
     layoutPiecesInitial(piecesContainer);
     setStatus('');
   });
+  const hintBtn = document.getElementById('hint-btn');
+  if (hintBtn) {
+    hintBtn.addEventListener('click', () => {
+      const solved = getCurrentDateHintSolution();
+      if (!solved) {
+        setStatus('No solution found for hints.', 'bad');
+        return;
+      }
+
+      if (hintUsedCount >= MAX_HINTS) {
+        applySolution(solved.solution);
+        checkVictory();
+        setStatus('Answer shown.', 'good');
+        return;
+      }
+
+      const remaining = solved.solution.filter(s => !hintedPieceIds.has(s.id));
+      if (remaining.length === 0) {
+        hintUsedCount = MAX_HINTS;
+        updateHintButtonUI();
+        setStatus('No more hint pieces. Click Show Answer.', 'good');
+        return;
+      }
+
+      const pick = remaining[Math.floor(Math.random() * remaining.length)];
+      hintedPieceIds.add(pick.id);
+      hintUsedCount += 1;
+      applyHintedPieces();
+      updateHintButtonUI();
+
+      if (hintUsedCount >= MAX_HINTS) {
+        setStatus('Hints used up. Click Show Answer to reveal full solution.', 'good');
+      } else {
+        setStatus(`Hint ${hintUsedCount}/${MAX_HINTS}: placed one piece.`, 'good');
+      }
+    });
+  }
   const solveBtn = document.getElementById('solve-btn');
   if (solveBtn) {
     solveBtn.addEventListener('click', async () => {
@@ -425,19 +565,34 @@ import {
       setStatus('Solving with DFS...', 'good');
       await nextFrame();
 
+      const currentDateKey = dateKey(target.year, target.monthIndex, target.day);
+      const shownKeys = shownSolveKeysByDate.get(currentDateKey) || new Set();
+      shownSolveKeysByDate.set(currentDateKey, shownKeys);
+
       const startedAt = performance.now();
-      const solution = solvePuzzleDFS(pieces);
+      let result = solvePuzzleDFS(pieces, { excludeSolutionKeys: shownKeys });
+      let recycled = false;
+      if (!result && shownKeys.size > 0) {
+        shownKeys.clear();
+        recycled = true;
+        result = solvePuzzleDFS(pieces, { excludeSolutionKeys: shownKeys });
+      }
       const elapsedMs = Math.round(performance.now() - startedAt);
 
-      if (!solution) {
+      if (!result) {
         setStatus(`No solution found (${elapsedMs} ms).`, 'bad');
         solveBtn.disabled = false;
         return;
       }
 
-      applySolution(solution);
+      shownKeys.add(result.key);
+      applySolution(result.solution);
       checkVictory();
-      setStatus(`Solved in ${elapsedMs} ms.`, 'good');
+      if (recycled) {
+        setStatus(`Solved in ${elapsedMs} ms (cycled solution pool).`, 'good');
+      } else {
+        setStatus(`Solved in ${elapsedMs} ms (new solution).`, 'good');
+      }
       solveBtn.disabled = false;
     });
   }
