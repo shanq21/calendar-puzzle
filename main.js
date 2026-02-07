@@ -18,6 +18,7 @@ import {
     captureSolution,
     applySolution
   } from './pieces.js';
+  import * as piecesApi from './pieces.js';
   import { solvePuzzleDFS } from './solver.js';
   
   const boardEl         = document.getElementById('board');
@@ -134,13 +135,14 @@ import {
     return result;
   }
 
-  function applyHintedPieces() {
+  function applyHintedPieces(preservePieceId = null) {
     if (!activeHintSolution) return false;
     const snapshot = captureSolution().map(s => ({ ...s }));
     const byId = new Map(snapshot.map(s => [s.id, s]));
     const solutionById = new Map(activeHintSolution.solution.map(s => [s.id, s]));
 
     for (const pid of hintedPieceIds) {
+      if (pid === preservePieceId) continue;
       const solved = solutionById.get(pid);
       if (solved) byId.set(pid, { ...solved });
     }
@@ -155,7 +157,7 @@ import {
     }
 
     byId.forEach((entry, pid) => {
-      if (hintedPieceIds.has(pid)) return;
+      if (hintedPieceIds.has(pid) && pid !== preservePieceId) return;
       const cells = getCellsFromPlacement(entry);
       for (const c of cells) {
         if (hintedOccupied.has(`${c.gx},${c.gy}`)) {
@@ -168,6 +170,21 @@ import {
 
     applySolution(Array.from(byId.values()));
     return true;
+  }
+
+  async function revealAnswerAnimated(solved) {
+    const pending = solved.solution.filter(s => !hintedPieceIds.has(s.id));
+    if (!pending.length) return;
+
+    for (const entry of pending) {
+      hintedPieceIds.add(entry.id);
+      applyHintedPieces(entry.id);
+      if (typeof piecesApi.animatePieceToSolutionEntry === 'function') {
+        await piecesApi.animatePieceToSolutionEntry(entry, { duration: 360 });
+      } else {
+        applyHintedPieces();
+      }
+    }
   }
 
   const STORAGE_KEY = 'calendar-puzzle-completions';
@@ -523,17 +540,21 @@ import {
   });
   const hintBtn = document.getElementById('hint-btn');
   if (hintBtn) {
-    hintBtn.addEventListener('click', () => {
+    hintBtn.addEventListener('click', async () => {
+      hintBtn.disabled = true;
       const solved = getCurrentDateHintSolution();
       if (!solved) {
         setStatus('No solution found for hints.', 'bad');
+        hintBtn.disabled = false;
         return;
       }
 
       if (hintUsedCount >= MAX_HINTS) {
+        await revealAnswerAnimated(solved);
         applySolution(solved.solution);
         checkVictory();
         setStatus('Answer shown.', 'good');
+        hintBtn.disabled = false;
         return;
       }
 
@@ -542,13 +563,19 @@ import {
         hintUsedCount = MAX_HINTS;
         updateHintButtonUI();
         setStatus('No more hint pieces. Click Show Answer.', 'good');
+        hintBtn.disabled = false;
         return;
       }
 
       const pick = remaining[Math.floor(Math.random() * remaining.length)];
       hintedPieceIds.add(pick.id);
       hintUsedCount += 1;
-      applyHintedPieces();
+      applyHintedPieces(pick.id);
+      if (typeof piecesApi.animatePieceToSolutionEntry === 'function') {
+        await piecesApi.animatePieceToSolutionEntry(pick, { duration: 340 });
+      } else {
+        applyHintedPieces();
+      }
       updateHintButtonUI();
 
       if (hintUsedCount >= MAX_HINTS) {
@@ -556,6 +583,7 @@ import {
       } else {
         setStatus(`Hint ${hintUsedCount}/${MAX_HINTS}: placed one piece.`, 'good');
       }
+      hintBtn.disabled = false;
     });
   }
   const solveBtn = document.getElementById('solve-btn');
