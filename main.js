@@ -18,6 +18,7 @@ import {
     captureSolution,
     applySolution
   } from './pieces.js';
+  import { solvePuzzleDFS } from './solver.js';
   
   const boardEl         = document.getElementById('board');
   const piecesContainer = document.getElementById('pieces-container');
@@ -385,6 +386,12 @@ import {
   window.onBoardStateChanged = () => {
     maybeAutoCheck();
   };
+
+  function nextFrame() {
+    return new Promise(resolve => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  }
   
   // ========= 初始化 =========
   
@@ -411,6 +418,29 @@ import {
     layoutPiecesInitial(piecesContainer);
     setStatus('');
   });
+  const solveBtn = document.getElementById('solve-btn');
+  if (solveBtn) {
+    solveBtn.addEventListener('click', async () => {
+      solveBtn.disabled = true;
+      setStatus('Solving with DFS...', 'good');
+      await nextFrame();
+
+      const startedAt = performance.now();
+      const solution = solvePuzzleDFS(pieces);
+      const elapsedMs = Math.round(performance.now() - startedAt);
+
+      if (!solution) {
+        setStatus(`No solution found (${elapsedMs} ms).`, 'bad');
+        solveBtn.disabled = false;
+        return;
+      }
+
+      applySolution(solution);
+      checkVictory();
+      setStatus(`Solved in ${elapsedMs} ms.`, 'good');
+      solveBtn.disabled = false;
+    });
+  }
 
   const calendarSection = document.getElementById('calendar-section');
   const calendarToggle = document.getElementById('calendar-toggle');
