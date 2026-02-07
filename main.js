@@ -20,11 +20,14 @@ import {
   } from './pieces.js';
   import * as piecesApi from './pieces.js';
   import { solvePuzzleDFS } from './solver.js';
+  import { playVictorySound } from './sounds.js';
   
   const boardEl         = document.getElementById('board');
   const piecesContainer = document.getElementById('pieces-container');
   const statusEl        = document.getElementById('status');
   const targetTextEl    = document.getElementById('target-text');
+  const calendarSection = document.getElementById('calendar-section');
+  const calendarToggle = document.getElementById('calendar-toggle');
   const calendarTitle   = document.getElementById('calendar-title');
   const calendarGrid    = document.getElementById('calendar-grid');
   const calPrevBtn      = document.getElementById('cal-prev');
@@ -138,6 +141,7 @@ import {
     if (key === lastVictoryKey && now - lastVictoryAt < VICTORY_DEBOUNCE_MS) return;
     lastVictoryKey = key;
     lastVictoryAt = now;
+    playVictorySound();
     animateBoardPulseAndConfetti();
     animatePiecesCelebrate();
     animateTargetCellsBloom();
@@ -249,7 +253,7 @@ import {
       hintedPieceIds.add(entry.id);
       applyHintedPieces(entry.id);
       if (typeof piecesApi.animatePieceToSolutionEntry === 'function') {
-        await piecesApi.animatePieceToSolutionEntry(entry, { duration: 360 });
+        await piecesApi.animatePieceToSolutionEntry(entry, { duration: 360, playSnapSound: true, snapLeadMs: 30 });
       } else {
         applyHintedPieces();
       }
@@ -642,7 +646,7 @@ import {
       hintUsedCount += 1;
       applyHintedPieces(pick.id);
       if (typeof piecesApi.animatePieceToSolutionEntry === 'function') {
-        await piecesApi.animatePieceToSolutionEntry(pick, { duration: 340 });
+        await piecesApi.animatePieceToSolutionEntry(pick, { duration: 340, playSnapSound: true, snapLeadMs: 28 });
       } else {
         applyHintedPieces();
       }
