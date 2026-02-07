@@ -222,6 +222,28 @@ button:active {
     align-self: center;
 }
 
+#board-container.victory-pulse {
+    animation: board-victory-pulse 480ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.victory-confetti-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 30;
+}
+
+.confetti-piece {
+    position: absolute;
+    top: -18px;
+    width: 8px;
+    height: 14px;
+    border-radius: 2px;
+    opacity: 0;
+    animation: confetti-fall var(--confetti-duration, 1100ms) ease-out var(--confetti-delay, 0ms) forwards;
+}
+
 #board-actions {
     display: flex;
     align-items: center;
@@ -291,6 +313,10 @@ button:active {
     border: 2px solid var(--panel-border);
     box-shadow: none;
     align-items: start;
+}
+
+#calendar-section.calendar-celebrate {
+    animation: calendar-pop 460ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 #calendar-section.is-collapsed {
@@ -410,6 +436,10 @@ button:active {
     border-color: rgba(210, 160, 95, 0.55);
     color: #8a5c2f;
     font-weight: 700;
+}
+
+.cal-day.victory-reward {
+    animation: calendar-reward 1550ms ease-out;
 }
 
 .cal-day.is-selected {
@@ -557,6 +587,10 @@ button:active {
     z-index: 3;
 }
 
+.cell.hole-highlight.target-bloom {
+    animation: target-cell-bloom 760ms ease-out var(--bloom-delay, 0ms);
+}
+
 #year-label {
     position: absolute;
     left: 0;
@@ -683,9 +717,84 @@ button:active {
     z-index: 80;
 }
 
+.piece.piece-celebrate {
+    animation: piece-celebrate-jump 560ms cubic-bezier(0.2, 0.8, 0.2, 1) var(--celebrate-delay, 0ms);
+}
+
 .piece.animating {
     pointer-events: none;
     z-index: 95;
+}
+
+@keyframes board-victory-pulse {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.03); }
+    100% { transform: scale(1); }
+}
+
+@keyframes confetti-fall {
+    0% {
+        transform: translate3d(0, 0, 0) rotate(0deg);
+        opacity: 0;
+    }
+    8% {
+        opacity: 1;
+    }
+    100% {
+        transform: translate3d(var(--confetti-drift, 0px), 390px, 0) rotate(var(--confetti-rotate, 240deg));
+        opacity: 0;
+    }
+}
+
+@keyframes piece-celebrate-jump {
+    0% { transform: translateY(0) scale(1); filter: brightness(1); }
+    35% { transform: translateY(-12px) scale(1.04); filter: brightness(1.08); }
+    100% { transform: translateY(0) scale(1); filter: brightness(1); }
+}
+
+@keyframes calendar-pop {
+    0% { transform: scale(0.985); }
+    35% { transform: scale(1.01); }
+    100% { transform: scale(1); }
+}
+
+@keyframes calendar-reward {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 192, 97, 0.75);
+        transform: scale(1);
+        background: #ffe6bf;
+    }
+    40% {
+        box-shadow: 0 0 0 10px rgba(255, 192, 97, 0);
+        transform: scale(1.06);
+        background: #ffd38f;
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 192, 97, 0);
+        transform: scale(1);
+        background: #ffe1b6;
+    }
+}
+
+@keyframes target-cell-bloom {
+    0% {
+        transform: scale(1);
+        box-shadow:
+            0 0 0 2px rgba(184, 138, 92, 0.24),
+            0 0 8px rgba(184, 138, 92, 0.28);
+    }
+    45% {
+        transform: scale(1.08);
+        box-shadow:
+            0 0 0 8px rgba(232, 176, 104, 0),
+            0 0 18px rgba(232, 176, 104, 0.5);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow:
+            0 0 0 2px rgba(184, 138, 92, 0.24),
+            0 0 8px rgba(184, 138, 92, 0.28);
+    }
 }
 
 .rotate-btn {

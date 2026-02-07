@@ -41,8 +41,11 @@ import {
   const solutions = new Map();
   const shownSolveKeysByDate = new Map();
   const MAX_HINTS = 3;
+  const VICTORY_DEBOUNCE_MS = 1800;
   let activeHintSolution = null;
   let hintUsedCount = 0;
+  let lastVictoryKey = '';
+  let lastVictoryAt = 0;
   const hintedPieceIds = new Set();
   let selectedDate = null;
   let calendarView = { year: target.year, monthIndex: target.monthIndex };
@@ -72,6 +75,72 @@ import {
     const mm = String(monthIndex + 1).padStart(2, '0');
     const dd = String(day).padStart(2, '0');
     return `${year}-${mm}-${dd}`;
+  }
+
+  function animateBoardPulseAndConfetti() {
+    const boardContainer = document.getElementById('board-container');
+    if (!boardContainer) return;
+    boardContainer.classList.remove('victory-pulse');
+    void boardContainer.offsetWidth;
+    boardContainer.classList.add('victory-pulse');
+    window.setTimeout(() => boardContainer.classList.remove('victory-pulse'), 520);
+
+    const layer = document.createElement('div');
+    layer.className = 'victory-confetti-layer';
+    const count = 34;
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('span');
+      p.className = 'confetti-piece';
+      p.style.left = `${4 + Math.random() * 92}%`;
+      p.style.setProperty('--confetti-delay', `${Math.round(Math.random() * 220)}ms`);
+      p.style.setProperty('--confetti-duration', `${920 + Math.round(Math.random() * 500)}ms`);
+      p.style.setProperty('--confetti-drift', `${-34 + Math.round(Math.random() * 68)}px`);
+      p.style.setProperty('--confetti-rotate', `${120 + Math.round(Math.random() * 280)}deg`);
+      p.style.backgroundColor = `hsl(${Math.round(Math.random() * 360)} 88% 66%)`;
+      layer.appendChild(p);
+    }
+    boardContainer.appendChild(layer);
+    window.setTimeout(() => {
+      if (layer.parentElement) layer.parentElement.removeChild(layer);
+    }, 1900);
+  }
+
+  function animatePiecesCelebrate() {
+    const active = pieces.filter(p => p.isOnBoard);
+    active.forEach((piece, idx) => {
+      piece.element.style.setProperty('--celebrate-delay', `${idx * 42}ms`);
+      piece.element.classList.remove('piece-celebrate');
+      void piece.element.offsetWidth;
+      piece.element.classList.add('piece-celebrate');
+      window.setTimeout(() => {
+        piece.element.classList.remove('piece-celebrate');
+        piece.element.style.removeProperty('--celebrate-delay');
+      }, 980 + idx * 42);
+    });
+  }
+
+  function animateTargetCellsBloom() {
+    const targets = boardEl.querySelectorAll('.cell.hole-highlight');
+    targets.forEach((el, idx) => {
+      el.style.setProperty('--bloom-delay', `${idx * 70}ms`);
+      el.classList.remove('target-bloom');
+      void el.offsetWidth;
+      el.classList.add('target-bloom');
+      window.setTimeout(() => {
+        el.classList.remove('target-bloom');
+        el.style.removeProperty('--bloom-delay');
+      }, 980 + idx * 70);
+    });
+  }
+
+  function playVictoryEffects(key) {
+    const now = Date.now();
+    if (key === lastVictoryKey && now - lastVictoryAt < VICTORY_DEBOUNCE_MS) return;
+    lastVictoryKey = key;
+    lastVictoryAt = now;
+    animateBoardPulseAndConfetti();
+    animatePiecesCelebrate();
+    animateTargetCellsBloom();
   }
 
   function rotatePoint(point, times) {
@@ -495,6 +564,7 @@ import {
     saveCompletions();
     saveSolutions();
     renderCalendar(calendarView.year, calendarView.monthIndex);
+    playVictoryEffects(key);
   }
 
   function maybeAutoCheck() {
@@ -625,8 +695,6 @@ import {
     });
   }
 
-  const calendarSection = document.getElementById('calendar-section');
-  const calendarToggle = document.getElementById('calendar-toggle');
   if (calendarSection && calendarToggle) {
     calendarToggle.addEventListener('click', () => {
       const isCollapsed = calendarSection.classList.toggle('is-collapsed');
