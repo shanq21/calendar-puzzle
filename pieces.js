@@ -807,26 +807,60 @@ function onPointerUp(ev) {
   
   function rotatePiece(piece) {
     const newRot = (piece.rotation + 1) % 4;
-
     const wasOnBoard = piece.isOnBoard && piece.gx != null && piece.gy != null;
+    const isDragging = piece.element.classList.contains('dragging');
     piece.rotation = newRot;
     layoutPieceBlocks(piece);
 
+    let shouldPlaySnap = false;
+    let shouldNotifyBoardState = false;
+
     if (wasOnBoard) {
       if (isPlacementValid(piece, piece.gx, piece.gy, newRot)) {
+        piece.isOnBoard = true;
         piece.lastValid = { gx: piece.gx, gy: piece.gy, rotation: newRot };
+        piece.element.classList.add('on-board');
         applyPieceTransform(piece);
+        shouldPlaySnap = true;
       } else {
         piece.gx = null;
         piece.gy = null;
         piece.isOnBoard = false;
         piece.element.classList.remove('on-board');
       }
+      shouldNotifyBoardState = true;
+    } else if (!isDragging) {
+      const { gx, gy, inside } = computeSnapGrid(piece);
+      if (inside && isPlacementValid(piece, gx, gy, newRot)) {
+        piece.gx = gx;
+        piece.gy = gy;
+        piece.isOnBoard = true;
+        piece.lastValid = { gx, gy, rotation: newRot };
+        piece.element.classList.add('on-board');
+        applyPieceTransform(piece);
+        shouldPlaySnap = true;
+      } else {
+        piece.gx = null;
+        piece.gy = null;
+        piece.isOnBoard = false;
+        piece.element.classList.remove('on-board');
+      }
+      shouldNotifyBoardState = true;
+    }
+
+    if (shouldPlaySnap) {
+      playSnapSound();
     }
     updatePieceGradient(piece);
+    if (shouldNotifyBoardState) {
+      onBoardStateChanged();
+    }
 
     clearGhost();
     lastGhostTarget = null;
+    if (isDragging) {
+      updateGhostFromPiece(piece);
+    }
   }
   
   // ========= 8. 事件绑定入口 =========
