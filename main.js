@@ -25,6 +25,11 @@ import {
   const statusEl        = document.getElementById('status');
   const targetTextEl    = document.getElementById('target-text');
   const onboardingEl    = document.getElementById('onboarding-text');
+  const showAnswerConfirmEl = document.getElementById('show-answer-confirm');
+  const showAnswerConfirmTextEl = document.getElementById('show-answer-confirm-text');
+  const showAnswerConfirmNoteEl = document.getElementById('show-answer-confirm-note');
+  const showAnswerConfirmOkBtn = document.getElementById('show-answer-confirm-ok');
+  const showAnswerConfirmCancelBtn = document.getElementById('show-answer-confirm-cancel');
   const calendarSection = document.getElementById('calendar-section');
   const calendarToggle = document.getElementById('calendar-toggle');
   const langToggle = document.getElementById('lang-toggle');
@@ -36,6 +41,7 @@ import {
   const calRestoreBtn   = document.getElementById('cal-restore');
   const calExportBtn    = document.getElementById('cal-export');
   const calImportInput  = document.getElementById('cal-import-input');
+  const solveBtn = document.getElementById('solve-btn');
   
   // 默认目标日期（可以随时被随机 / today 覆盖）
   const target = { year: 2026, monthIndex: 1, day: 3, weekdayIndex: 2 };
@@ -51,6 +57,8 @@ import {
   let lastVictoryAt = 0;
   const hintedPieceIds = new Set();
   let selectedDate = null;
+  let hasConfirmedShowAnswer = false;
+  let pendingShowAnswerSolution = null;
   let calendarView = { year: target.year, monthIndex: target.monthIndex };
   const LOCALE_KEY = 'calendar-puzzle-locale';
   const SUPPORTED_LOCALES = ['en', 'zh'];
@@ -62,20 +70,24 @@ import {
       pageTitle: 'Perpetual Calendar Puzzle',
       title: 'Calendar Puzzle',
       calendar: 'Calendar',
-      random: 'Random',
+      random: 'Random Day',
       today: 'Today',
       restore: 'Restore',
       export: 'Export',
       import: 'Import',
       clear: 'Clear',
-      solve: 'Solve',
+      solve: 'Auto Solve',
       hint: 'Hint',
       showAnswer: 'Show Answer',
+      showAnswerConfirm: 'Show the answer?',
+      showAnswerNote: 'There may be more than one solution. We’ll show one of them.',
+      confirm: 'Show',
+      cancel: 'Cancel',
       selected: 'Selected',
       prevMonth: 'Previous month',
       nextMonth: 'Next month',
       langToggleTitle: 'Switch to Chinese',
-      onboarding: 'Your goal is to fit all pieces perfectly to fill the board, leaving only the three cells for the current month, day, and weekday uncovered.\nYou can drag pieces onto the board, and you can click a piece to rotate it.',
+      onboarding: 'Fill the board with all pieces, leaving only today’s month, day, and weekday uncovered.\nYou can drag pieces and click a piece to rotate it.',
       colors: {
         blue: 'Blue',
         green: 'Green',
@@ -90,19 +102,19 @@ import {
       calendarWeekdays: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
       status: {
         dataImported: 'Data imported.',
-        importFailed: 'Import failed. Invalid file.',
-        illegalPlacement: 'Some pieces are not legally placed on the board.',
-        unusableCell: 'A piece is partially off the board or on an unusable cell.',
-        coverTarget: 'Pieces cannot cover the target month/day/weekday.',
-        overlap: 'Pieces overlap on some cells.',
-        targetMustStayOpen: 'Target cells must remain uncovered.',
-        notAllCovered: 'Not all cells are covered yet.',
-        perfect: 'Perfect! This configuration works for the target date.',
+        importFailed: 'Import failed. Please check the file format.',
+        illegalPlacement: 'Some pieces are not placed correctly on the board.',
+        unusableCell: 'A piece is outside the board or on an invalid cell.',
+        coverTarget: 'Pieces can’t cover the target month/day/weekday.',
+        overlap: 'Pieces overlap.',
+        targetMustStayOpen: 'Target cells must stay uncovered.',
+        notAllCovered: 'Some cells are still uncovered.',
+        perfect: 'Great job, this solution works!',
         noHintSolution: 'No solution found for hints.',
         answerShown: 'Answer shown.',
-        noMoreHints: 'No more hint pieces. Click Show Answer.',
-        hintsUsedUp: 'Hints used up. Click Show Answer to reveal full solution.',
-        solving: 'Solving with DFS...',
+        noMoreHints: 'No more hint pieces. Click “Show Answer” to reveal the full answer.',
+        hintsUsedUp: 'Hints are used up. Click “Show Answer” to reveal the full answer.',
+        solving: 'Solving...',
         noSolution: (ms) => `No solution found (${ms} ms).`,
         solvedRecycled: (ms) => `Solved in ${ms} ms (cycled solution pool).`,
         solvedNew: (ms) => `Solved in ${ms} ms (new solution).`,
@@ -116,20 +128,24 @@ import {
       pageTitle: '万年历拼图',
       title: '日历拼图',
       calendar: '日历',
-      random: '随机',
+      random: '随机一天',
       today: '今天',
       restore: '恢复',
       export: '导出',
       import: '导入',
       clear: '清空',
-      solve: '求解',
+      solve: '自动求解',
       hint: '提示',
       showAnswer: '显示答案',
+      showAnswerConfirm: '要显示答案吗？',
+      showAnswerNote: '可能不止一种解法，这里会显示其中一种。',
+      confirm: '显示',
+      cancel: '取消',
       selected: '已选择',
       prevMonth: '上个月',
       nextMonth: '下个月',
       langToggleTitle: '切换到英文',
-      onboarding: '你的目标是让所有拼块恰好填满棋盘，只露出当前日期对应的月份、日期和星期三个格子。\n你可以将拼块拖到棋盘上，也可以单击拼块进行旋转。',
+      onboarding: '目标是用拼块填满棋盘，只露出当天对应的月份、日期和星期。\n你可以拖动拼块，也可以单击拼块旋转。',
       colors: {
         blue: '蓝色',
         green: '绿色',
@@ -144,23 +160,23 @@ import {
       calendarWeekdays: ['日','一','二','三','四','五','六'],
       status: {
         dataImported: '数据导入成功。',
-        importFailed: '导入失败，文件无效。',
-        illegalPlacement: '有些拼块没有合法放在棋盘上。',
-        unusableCell: '有拼块部分超出棋盘或落在不可用格子上。',
+        importFailed: '导入失败，请检查文件格式。',
+        illegalPlacement: '还有拼块没有正确放在棋盘上。',
+        unusableCell: '有拼块超出棋盘或放在不可用格子上。',
         coverTarget: '拼块不能覆盖目标的月份/日期/星期。',
-        overlap: '拼块之间发生重叠。',
-        targetMustStayOpen: '目标格必须保持空白。',
-        notAllCovered: '还有格子尚未覆盖。',
-        perfect: '完美！这个摆法可覆盖目标日期。',
-        noHintSolution: '未找到可用于提示的解。',
+        overlap: '拼块发生重叠。',
+        targetMustStayOpen: '目标格需要保持空白。',
+        notAllCovered: '还有格子没有覆盖。',
+        perfect: '太棒了，解法正确！',
+        noHintSolution: '当前日期没有可用提示解。',
         answerShown: '已显示答案。',
-        noMoreHints: '没有可继续提示的拼块了，请点击“显示答案”。',
-        hintsUsedUp: '提示次数已用完，请点击“显示答案”查看完整解。',
-        solving: '正在用 DFS 求解...',
+        noMoreHints: '没有更多可提示的拼块了。点击“显示答案”查看完整解。',
+        hintsUsedUp: '提示次数已用完。点击“显示答案”查看完整解。',
+        solving: '正在求解…',
         noSolution: (ms) => `未找到解（${ms} 毫秒）。`,
-        solvedRecycled: (ms) => `求解完成：${ms} 毫秒（已循环解池）。`,
-        solvedNew: (ms) => `求解完成：${ms} 毫秒（新解）。`,
-        noSavedSolution: '该日期没有已保存解。',
+        solvedRecycled: (ms) => `求解完成（${ms} 毫秒，循环解池）。`,
+        solvedNew: (ms) => `求解完成（${ms} 毫秒，新解）。`,
+        noSavedSolution: '这个日期还没有保存过解法。',
         solutionRestored: '已恢复该日期解法。',
         hintProgress: (used, max) => `提示 ${used}/${max}：已放置一个拼块。`
       }
@@ -187,6 +203,16 @@ import {
   function t() {
     return I18N[currentLocale] || I18N.en;
   }
+
+  function isDevEnvironment() {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') return true;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('dev') === '1' || params.get('env') === 'dev') return true;
+    return false;
+  }
+
+  const IS_DEV_ENV = isDevEnvironment();
 
   function formatDate(year, monthIndex, day, weekdayIndex) {
     if (currentLocale === 'zh') {
@@ -264,7 +290,12 @@ import {
       importLabel.appendChild(calImportInput);
     }
     document.getElementById('clear-btn').textContent = t().clear;
-    document.getElementById('solve-btn').textContent = t().solve;
+    if (solveBtn) solveBtn.textContent = t().solve;
+    if (solveBtn) solveBtn.style.display = IS_DEV_ENV ? '' : 'none';
+    if (showAnswerConfirmTextEl) showAnswerConfirmTextEl.textContent = t().showAnswerConfirm;
+    if (showAnswerConfirmNoteEl) showAnswerConfirmNoteEl.textContent = t().showAnswerNote;
+    if (showAnswerConfirmOkBtn) showAnswerConfirmOkBtn.textContent = t().confirm;
+    if (showAnswerConfirmCancelBtn) showAnswerConfirmCancelBtn.textContent = t().cancel;
     updateHintButtonUI();
     if (calPrevBtn) calPrevBtn.setAttribute('aria-label', t().prevMonth);
     if (calNextBtn) calNextBtn.setAttribute('aria-label', t().nextMonth);
@@ -413,13 +444,36 @@ import {
       hintBtn.classList.add('show-answer');
       return;
     }
+    hideShowAnswerConfirm();
     hintBtn.textContent = `${t().hint} (${MAX_HINTS - hintUsedCount})`;
     hintBtn.classList.remove('show-answer');
+  }
+
+  function showShowAnswerConfirm(solved) {
+    pendingShowAnswerSolution = solved;
+    if (!showAnswerConfirmEl) return;
+    showAnswerConfirmEl.classList.remove('is-hidden');
+  }
+
+  function hideShowAnswerConfirm() {
+    pendingShowAnswerSolution = null;
+    if (!showAnswerConfirmEl) return;
+    showAnswerConfirmEl.classList.add('is-hidden');
+  }
+
+  async function revealFullAnswer(solved, hintBtn) {
+    await revealAnswerAnimated(solved);
+    applySolution(solved.solution);
+    checkVictory();
+    setStatus(t().status.answerShown, 'good');
+    hintBtn.disabled = false;
   }
 
   function resetHintState() {
     activeHintSolution = null;
     hintUsedCount = 0;
+    hasConfirmedShowAnswer = false;
+    hideShowAnswerConfirm();
     hintedPieceIds.clear();
     updateHintButtonUI();
   }
@@ -849,11 +903,12 @@ import {
       }
 
       if (hintUsedCount >= MAX_HINTS) {
-        await revealAnswerAnimated(solved);
-        applySolution(solved.solution);
-        checkVictory();
-        setStatus(t().status.answerShown, 'good');
-        hintBtn.disabled = false;
+        if (!hasConfirmedShowAnswer) {
+          showShowAnswerConfirm(solved);
+          hintBtn.disabled = false;
+          return;
+        }
+        await revealFullAnswer(solved, hintBtn);
         return;
       }
 
@@ -885,9 +940,9 @@ import {
       hintBtn.disabled = false;
     });
   }
-  const solveBtn = document.getElementById('solve-btn');
   if (solveBtn) {
     solveBtn.addEventListener('click', async () => {
+      if (!IS_DEV_ENV) return;
       solveBtn.disabled = true;
       setStatus(t().status.solving, 'good');
       await nextFrame();
@@ -921,6 +976,25 @@ import {
         setStatus(t().status.solvedNew(elapsedMs), 'good');
       }
       solveBtn.disabled = false;
+    });
+  }
+
+  if (showAnswerConfirmOkBtn) {
+    showAnswerConfirmOkBtn.addEventListener('click', async () => {
+      const hintBtn = document.getElementById('hint-btn');
+      if (!hintBtn || !pendingShowAnswerSolution) return;
+      hasConfirmedShowAnswer = true;
+      const solved = pendingShowAnswerSolution;
+      hideShowAnswerConfirm();
+      hintBtn.disabled = true;
+      await revealFullAnswer(solved, hintBtn);
+    });
+  }
+
+  if (showAnswerConfirmCancelBtn) {
+    showAnswerConfirmCancelBtn.addEventListener('click', () => {
+      hasConfirmedShowAnswer = false;
+      hideShowAnswerConfirm();
     });
   }
 
