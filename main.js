@@ -75,7 +75,7 @@ import {
       prevMonth: 'Previous month',
       nextMonth: 'Next month',
       langToggleTitle: 'Switch to Chinese',
-      onboarding: 'Drag pieces onto the board, rotate with double-click/R, and keep the highlighted month/day/weekday empty.',
+      onboarding: 'Your goal is to fit all pieces perfectly to fill the board, leaving only the three cells for the current month, day, and weekday uncovered.\nYou can drag pieces onto the board, and you can click a piece to rotate it.',
       colors: {
         blue: 'Blue',
         green: 'Green',
@@ -129,7 +129,7 @@ import {
       prevMonth: '上个月',
       nextMonth: '下个月',
       langToggleTitle: '切换到英文',
-      onboarding: '把拼块拖到棋盘上，双击或按 R 旋转，并让高亮的月份/日期/星期保持空白。',
+      onboarding: '你的目标是让所有拼块恰好填满棋盘，只露出当前日期对应的月份、日期和星期三个格子。\n你可以将拼块拖到棋盘上，也可以单击拼块进行旋转。',
       colors: {
         blue: '蓝色',
         green: '绿色',
