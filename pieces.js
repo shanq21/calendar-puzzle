@@ -720,6 +720,10 @@ function applyPieceTransform(piece) {
   
 let activePiece = null;
 let dragOffset  = { x: 0, y: 0 };
+let dragStarted = false;
+let pointerDownAt = { x: 0, y: 0 };
+let activePointerIsTouch = false;
+const DRAG_START_THRESHOLD_PX = 6;
 
 function getOffsetParentOrigin(el) {
   const parent = el.offsetParent;
@@ -744,14 +748,13 @@ function onPointerDownPiece(ev, piece) {
     }
   
     activePiece = piece;
+    activePointerIsTouch = isTouch;
+    dragStarted = false;
     piece.element.style.zIndex = String(zCounter++);
     pieces.forEach(p => p.element.classList.remove('selected'));
     piece.element.classList.add('selected');
-    piece.isOnBoard = false;
-    piece.element.classList.remove('on-board');
-    piece.element.classList.add('dragging');
-    updatePieceGradient(piece);
-    // playPickupSound();
+    pointerDownAt.x = point.clientX;
+    pointerDownAt.y = point.clientY;
   
     const el = piece.element;
     const parentOrigin = getOffsetParentOrigin(el);
@@ -765,13 +768,26 @@ function onPointerDownPiece(ev, piece) {
     window.addEventListener(isTouch ? 'touchend'  : 'mouseup',   onPointerUp);
   
     ev.preventDefault();
-    updateGhostFromPiece(piece);
   }
   
 function onPointerMove(ev) {
     if (!activePiece) return;
     const isTouch = ev.type.startsWith('touch');
     const point = isTouch ? ev.touches[0] : ev;
+
+    if (!dragStarted) {
+      const dx = point.clientX - pointerDownAt.x;
+      const dy = point.clientY - pointerDownAt.y;
+      if ((dx * dx + dy * dy) < (DRAG_START_THRESHOLD_PX * DRAG_START_THRESHOLD_PX)) {
+        return;
+      }
+      dragStarted = true;
+      activePiece.isOnBoard = false;
+      activePiece.element.classList.remove('on-board');
+      activePiece.element.classList.add('dragging');
+      updatePieceGradient(activePiece);
+      updateGhostFromPiece(activePiece);
+    }
   
     const el = activePiece.element;
     const parentOrigin = getOffsetParentOrigin(el);
@@ -789,17 +805,22 @@ function onPointerMove(ev) {
   
 function onPointerUp(ev) {
     if (!activePiece) return;
-    activePiece.element.classList.remove('dragging');
-    const snappedOnBoard = snapPieceToBoard(activePiece);
-    if (snappedOnBoard) {
-      playSnapSound();
+
+    if (dragStarted) {
+      activePiece.element.classList.remove('dragging');
+      const snappedOnBoard = snapPieceToBoard(activePiece);
+      if (snappedOnBoard) {
+        playSnapSound();
+      } else {
+        // playDropSound();
+      }
     } else {
-      // playDropSound();
+      rotatePiece(activePiece);
     }
   
-    const isTouch = ev.type.startsWith('touch');
-    window.removeEventListener(isTouch ? 'touchmove' : 'mousemove', onPointerMove);
-    window.removeEventListener(isTouch ? 'touchend'  : 'mouseup',   onPointerUp);
+    window.removeEventListener(activePointerIsTouch ? 'touchmove' : 'mousemove', onPointerMove);
+    window.removeEventListener(activePointerIsTouch ? 'touchend'  : 'mouseup',   onPointerUp);
+    dragStarted = false;
     activePiece = null;
 }
   
@@ -878,20 +899,6 @@ export function attachPieceEvents() {
       piece.element.classList.remove('hovering');
       updatePieceGradient(piece);
     });
-    el.addEventListener('dblclick', ev => {
-      if (ev.target.classList.contains('rotate-btn')) return;
-      rotatePiece(piece);
-      ev.preventDefault();
-    });
-  });
-
-  window.addEventListener('keydown', ev => {
-    if (ev.key === 'r' || ev.key === 'R' || ev.key === ' ') {
-      if (activePiece) {
-        rotatePiece(activePiece);
-        ev.preventDefault();
-      }
-    }
   });
 }
   
