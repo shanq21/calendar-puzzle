@@ -1,7 +1,5 @@
 // main.js
 import {
-    months,
-    weekdays,
     boardCells,
     holeIds,
     initBoard,
@@ -26,8 +24,10 @@ import {
   const piecesContainer = document.getElementById('pieces-container');
   const statusEl        = document.getElementById('status');
   const targetTextEl    = document.getElementById('target-text');
+  const onboardingEl    = document.getElementById('onboarding-text');
   const calendarSection = document.getElementById('calendar-section');
   const calendarToggle = document.getElementById('calendar-toggle');
+  const langToggle = document.getElementById('lang-toggle');
   const calendarTitle   = document.getElementById('calendar-title');
   const calendarGrid    = document.getElementById('calendar-grid');
   const calPrevBtn      = document.getElementById('cal-prev');
@@ -52,6 +52,158 @@ import {
   const hintedPieceIds = new Set();
   let selectedDate = null;
   let calendarView = { year: target.year, monthIndex: target.monthIndex };
+  const LOCALE_KEY = 'calendar-puzzle-locale';
+  const SUPPORTED_LOCALES = ['en', 'zh'];
+  let currentLocale = 'en';
+
+  const I18N = {
+    en: {
+      htmlLang: 'en',
+      pageTitle: 'Perpetual Calendar Puzzle',
+      title: 'Calendar Puzzle',
+      calendar: 'Calendar',
+      random: 'Random',
+      today: 'Today',
+      restore: 'Restore',
+      export: 'Export',
+      import: 'Import',
+      clear: 'Clear',
+      solve: 'Solve',
+      hint: 'Hint',
+      showAnswer: 'Show Answer',
+      selected: 'Selected',
+      prevMonth: 'Previous month',
+      nextMonth: 'Next month',
+      langToggleTitle: 'Switch to Chinese',
+      onboarding: 'Drag pieces onto the board, rotate with double-click/R, and keep the highlighted month/day/weekday empty.',
+      colors: {
+        blue: 'Blue',
+        green: 'Green',
+        pink: 'Pink',
+        orange: 'Orange',
+        purple: 'Purple',
+        coffee: 'Coffee',
+        clear: 'Clear'
+      },
+      months: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+      weekdays: ['Sun','Mon','Tues','Wed','Thur','Fri','Sat'],
+      calendarWeekdays: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+      status: {
+        dataImported: 'Data imported.',
+        importFailed: 'Import failed. Invalid file.',
+        illegalPlacement: 'Some pieces are not legally placed on the board.',
+        unusableCell: 'A piece is partially off the board or on an unusable cell.',
+        coverTarget: 'Pieces cannot cover the target month/day/weekday.',
+        overlap: 'Pieces overlap on some cells.',
+        targetMustStayOpen: 'Target cells must remain uncovered.',
+        notAllCovered: 'Not all cells are covered yet.',
+        perfect: 'Perfect! This configuration works for the target date.',
+        noHintSolution: 'No solution found for hints.',
+        answerShown: 'Answer shown.',
+        noMoreHints: 'No more hint pieces. Click Show Answer.',
+        hintsUsedUp: 'Hints used up. Click Show Answer to reveal full solution.',
+        solving: 'Solving with DFS...',
+        noSolution: (ms) => `No solution found (${ms} ms).`,
+        solvedRecycled: (ms) => `Solved in ${ms} ms (cycled solution pool).`,
+        solvedNew: (ms) => `Solved in ${ms} ms (new solution).`,
+        noSavedSolution: 'No saved solution for this date.',
+        solutionRestored: 'Solution restored.',
+        hintProgress: (used, max) => `Hint ${used}/${max}: placed one piece.`
+      }
+    },
+    zh: {
+      htmlLang: 'zh-CN',
+      pageTitle: '万年历拼图',
+      title: '日历拼图',
+      calendar: '日历',
+      random: '随机',
+      today: '今天',
+      restore: '恢复',
+      export: '导出',
+      import: '导入',
+      clear: '清空',
+      solve: '求解',
+      hint: '提示',
+      showAnswer: '显示答案',
+      selected: '已选择',
+      prevMonth: '上个月',
+      nextMonth: '下个月',
+      langToggleTitle: '切换到英文',
+      onboarding: '把拼块拖到棋盘上，双击或按 R 旋转，并让高亮的月份/日期/星期保持空白。',
+      colors: {
+        blue: '蓝色',
+        green: '绿色',
+        pink: '粉色',
+        orange: '橙色',
+        purple: '紫色',
+        coffee: '咖啡色',
+        clear: '透明'
+      },
+      months: ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],
+      weekdays: ['周日','周一','周二','周三','周四','周五','周六'],
+      calendarWeekdays: ['日','一','二','三','四','五','六'],
+      status: {
+        dataImported: '数据导入成功。',
+        importFailed: '导入失败，文件无效。',
+        illegalPlacement: '有些拼块没有合法放在棋盘上。',
+        unusableCell: '有拼块部分超出棋盘或落在不可用格子上。',
+        coverTarget: '拼块不能覆盖目标的月份/日期/星期。',
+        overlap: '拼块之间发生重叠。',
+        targetMustStayOpen: '目标格必须保持空白。',
+        notAllCovered: '还有格子尚未覆盖。',
+        perfect: '完美！这个摆法可覆盖目标日期。',
+        noHintSolution: '未找到可用于提示的解。',
+        answerShown: '已显示答案。',
+        noMoreHints: '没有可继续提示的拼块了，请点击“显示答案”。',
+        hintsUsedUp: '提示次数已用完，请点击“显示答案”查看完整解。',
+        solving: '正在用 DFS 求解...',
+        noSolution: (ms) => `未找到解（${ms} 毫秒）。`,
+        solvedRecycled: (ms) => `求解完成：${ms} 毫秒（已循环解池）。`,
+        solvedNew: (ms) => `求解完成：${ms} 毫秒（新解）。`,
+        noSavedSolution: '该日期没有已保存解。',
+        solutionRestored: '已恢复该日期解法。',
+        hintProgress: (used, max) => `提示 ${used}/${max}：已放置一个拼块。`
+      }
+    }
+  };
+
+  function isSupportedLocale(locale) {
+    return SUPPORTED_LOCALES.includes(locale);
+  }
+
+  function detectInitialLocale() {
+    let saved = null;
+    try {
+      saved = localStorage.getItem(LOCALE_KEY);
+    } catch (e) {
+      saved = null;
+    }
+    if (isSupportedLocale(saved)) return saved;
+    const candidates = Array.isArray(navigator.languages) ? navigator.languages : [navigator.language];
+    const matched = candidates.find(l => typeof l === 'string' && l.toLowerCase().startsWith('zh'));
+    return matched ? 'zh' : 'en';
+  }
+
+  function t() {
+    return I18N[currentLocale] || I18N.en;
+  }
+
+  function formatDate(year, monthIndex, day, weekdayIndex) {
+    if (currentLocale === 'zh') {
+      return `${t().weekdays[weekdayIndex]}，${year}年${monthIndex + 1}月${day}日`;
+    }
+    return `${t().weekdays[weekdayIndex]}, ${t().months[monthIndex]} ${day}, ${year}`;
+  }
+
+  function formatCalendarTitle(year, monthIndex) {
+    if (currentLocale === 'zh') return `${year}年 ${t().months[monthIndex]}`;
+    return `${t().months[monthIndex]} ${year}`;
+  }
+
+  function formatSelectedDate(year, monthIndex, day) {
+    if (currentLocale === 'zh') return `${t().selected}：${year}年${monthIndex + 1}月${day}日`;
+    return `${t().selected}: ${t().months[monthIndex]} ${day}, ${year}`;
+  }
   
   function setStatus(msg, type) {
     statusEl.textContent = msg || '';
@@ -70,7 +222,7 @@ import {
   function updateTargetUI() {
     targetTextEl.innerHTML = `
       <span class="target-icon" aria-hidden="true"></span>
-      <span class="target-date">${weekdays[target.weekdayIndex]}, ${months[target.monthIndex]} ${target.day}, ${target.year}</span>
+      <span class="target-date">${formatDate(target.year, target.monthIndex, target.day, target.weekdayIndex)}</span>
     `;
   }
 
@@ -78,6 +230,78 @@ import {
     const mm = String(monthIndex + 1).padStart(2, '0');
     const dd = String(day).padStart(2, '0');
     return `${year}-${mm}-${dd}`;
+  }
+
+  function updateBoardLabels() {
+    boardCells.forEach((cell) => {
+      if (cell.id.startsWith('M')) {
+        const idx = Number(cell.id.slice(1));
+        cell.label = t().months[idx];
+        cell.element.textContent = cell.label;
+        return;
+      }
+      if (cell.id.startsWith('W')) {
+        const idx = Number(cell.id.slice(1));
+        cell.label = t().weekdays[idx];
+        cell.element.textContent = cell.label;
+      }
+    });
+  }
+
+  function updateStaticTexts() {
+    document.documentElement.lang = t().htmlLang;
+    document.title = t().pageTitle;
+    document.querySelector('#title-block h1').textContent = t().title;
+    if (calendarToggle) calendarToggle.textContent = t().calendar;
+    if (onboardingEl) onboardingEl.textContent = t().onboarding;
+    document.getElementById('new-game-btn').textContent = t().random;
+    document.getElementById('today-btn').textContent = t().today;
+    if (calRestoreBtn) calRestoreBtn.textContent = t().restore;
+    if (calExportBtn) calExportBtn.textContent = t().export;
+    const importLabel = document.querySelector('.cal-import');
+    if (importLabel && calImportInput) {
+      importLabel.textContent = `${t().import} `;
+      importLabel.appendChild(calImportInput);
+    }
+    document.getElementById('clear-btn').textContent = t().clear;
+    document.getElementById('solve-btn').textContent = t().solve;
+    updateHintButtonUI();
+    if (calPrevBtn) calPrevBtn.setAttribute('aria-label', t().prevMonth);
+    if (calNextBtn) calNextBtn.setAttribute('aria-label', t().nextMonth);
+    document.querySelectorAll('.style-swatch').forEach((btn) => {
+      const style = btn.getAttribute('data-style');
+      if (!style) return;
+      btn.setAttribute('aria-label', t().colors[style] || style);
+    });
+    if (langToggle) {
+      langToggle.textContent = '🌐';
+      langToggle.setAttribute('title', t().langToggleTitle);
+      langToggle.setAttribute('aria-label', t().langToggleTitle);
+    }
+  }
+
+  function refreshSelectedDateLabel() {
+    if (!selectedDate || !calMenuTitle) return;
+    const [yy, mm, dd] = selectedDate.split('-').map(Number);
+    if (!Number.isFinite(yy) || !Number.isFinite(mm) || !Number.isFinite(dd)) return;
+    calMenuTitle.textContent = formatSelectedDate(yy, mm - 1, dd);
+  }
+
+  function setLocale(locale, options = {}) {
+    if (!isSupportedLocale(locale)) return;
+    currentLocale = locale;
+    updateStaticTexts();
+    updateBoardLabels();
+    updateTargetUI();
+    refreshSelectedDateLabel();
+    renderCalendar(calendarView.year, calendarView.monthIndex);
+    if (options.persist !== false) {
+      try {
+        localStorage.setItem(LOCALE_KEY, currentLocale);
+      } catch (e) {
+        // ignore storage errors
+      }
+    }
   }
 
   function animateBoardPulseAndConfetti() {
@@ -185,11 +409,11 @@ import {
     const hintBtn = document.getElementById('hint-btn');
     if (!hintBtn) return;
     if (hintUsedCount >= MAX_HINTS) {
-      hintBtn.textContent = 'Show Answer';
+      hintBtn.textContent = t().showAnswer;
       hintBtn.classList.add('show-answer');
       return;
     }
-    hintBtn.textContent = `Hint (${MAX_HINTS - hintUsedCount})`;
+    hintBtn.textContent = `${t().hint} (${MAX_HINTS - hintUsedCount})`;
     hintBtn.classList.remove('show-answer');
   }
 
@@ -394,20 +618,20 @@ import {
         saveMarks();
         saveSolutions();
         renderCalendar(calendarView.year, calendarView.monthIndex);
-        setStatus('Data imported.', 'good');
+        setStatus(t().status.dataImported, 'good');
       }
     } catch (e) {
-      setStatus('Import failed. Invalid file.', 'bad');
+      setStatus(t().status.importFailed, 'bad');
     }
   }
 
   function renderCalendar(year, monthIndex) {
     if (!calendarGrid || !calendarTitle) return;
     calendarView = { year, monthIndex };
-    calendarTitle.textContent = `${months[monthIndex]} ${year}`;
+    calendarTitle.textContent = formatCalendarTitle(year, monthIndex);
 
     calendarGrid.innerHTML = '';
-    const weekLabels = ['Sun','Mon','Tues','Wed','Thur','Fri','Sat'];
+    const weekLabels = t().calendarWeekdays;
     weekLabels.forEach(w => {
       const el = document.createElement('div');
       el.className = 'cal-cell cal-week';
@@ -470,7 +694,7 @@ import {
   function setSelectedDate(year, monthIndex, day) {
     selectedDate = dateKey(year, monthIndex, day);
     if (calMenuTitle) {
-      calMenuTitle.textContent = `Selected: ${months[monthIndex]} ${day}, ${year}`;
+      calMenuTitle.textContent = formatSelectedDate(year, monthIndex, day);
     }
     const mark = dateMarks.get(selectedDate) || { heart: false, star: false };
     document.querySelectorAll('.cal-toggle').forEach(el => el.classList.remove('is-active'));
@@ -511,7 +735,7 @@ import {
     // 先检查所有 piece 是否都合法在 board 上
     for (const piece of pieces) {
       if (!piece.isOnBoard || piece.gx == null || piece.gy == null) {
-        setStatus('Some pieces are not legally placed on the board.', 'bad');
+        setStatus(t().status.illegalPlacement, 'bad');
         return;
       }
     }
@@ -523,7 +747,7 @@ import {
         const key  = `${c.gx},${c.gy}`;
         const cell = boardCells.find(bc => bc.gx === c.gx && bc.gy === c.gy);
         if (!cell) {
-          setStatus('A piece is partially off the board or on an unusable cell.', 'bad');
+          setStatus(t().status.unusableCell, 'bad');
           return;
         }
         if (
@@ -531,11 +755,11 @@ import {
           cell.id === holeIds.dayId ||
           cell.id === holeIds.weekdayId
         ) {
-          setStatus('Pieces cannot cover the target month/day/weekday.', 'bad');
+          setStatus(t().status.coverTarget, 'bad');
           return;
         }
         if (covered.has(cell.id)) {
-          setStatus('Pieces overlap on some cells.', 'bad');
+          setStatus(t().status.overlap, 'bad');
           return;
         }
         covered.set(cell.id, piece.id);
@@ -550,18 +774,18 @@ import {
         cell.id === holeIds.weekdayId
       ) {
         if (covered.has(cell.id)) {
-          setStatus('Target cells must remain uncovered.', 'bad');
+          setStatus(t().status.targetMustStayOpen, 'bad');
           return;
         }
       } else {
         if (!covered.has(cell.id)) {
-          setStatus('Not all cells are covered yet.', 'bad');
+          setStatus(t().status.notAllCovered, 'bad');
           return;
         }
       }
     }
   
-    setStatus('Perfect! This configuration works for the target date 🎉', 'good');
+    setStatus(t().status.perfect, 'good');
     const key = dateKey(target.year, target.monthIndex, target.day);
     completedDates.add(key);
     solutions.set(key, captureSolution());
@@ -590,6 +814,7 @@ import {
   // ========= 初始化 =========
   
   initBoard(boardEl);
+  setLocale(detectInitialLocale(), { persist: false });
   buildPieces(piecesContainer);
   const initialStyle = document.querySelector('.style-swatch.is-active')?.getAttribute('data-style') || 'blue';
   setPieceStyle(initialStyle);
@@ -618,7 +843,7 @@ import {
       hintBtn.disabled = true;
       const solved = getCurrentDateHintSolution();
       if (!solved) {
-        setStatus('No solution found for hints.', 'bad');
+        setStatus(t().status.noHintSolution, 'bad');
         hintBtn.disabled = false;
         return;
       }
@@ -627,7 +852,7 @@ import {
         await revealAnswerAnimated(solved);
         applySolution(solved.solution);
         checkVictory();
-        setStatus('Answer shown.', 'good');
+        setStatus(t().status.answerShown, 'good');
         hintBtn.disabled = false;
         return;
       }
@@ -636,7 +861,7 @@ import {
       if (remaining.length === 0) {
         hintUsedCount = MAX_HINTS;
         updateHintButtonUI();
-        setStatus('No more hint pieces. Click Show Answer.', 'good');
+        setStatus(t().status.noMoreHints, 'good');
         hintBtn.disabled = false;
         return;
       }
@@ -653,9 +878,9 @@ import {
       updateHintButtonUI();
 
       if (hintUsedCount >= MAX_HINTS) {
-        setStatus('Hints used up. Click Show Answer to reveal full solution.', 'good');
+        setStatus(t().status.hintsUsedUp, 'good');
       } else {
-        setStatus(`Hint ${hintUsedCount}/${MAX_HINTS}: placed one piece.`, 'good');
+        setStatus(t().status.hintProgress(hintUsedCount, MAX_HINTS), 'good');
       }
       hintBtn.disabled = false;
     });
@@ -664,7 +889,7 @@ import {
   if (solveBtn) {
     solveBtn.addEventListener('click', async () => {
       solveBtn.disabled = true;
-      setStatus('Solving with DFS...', 'good');
+      setStatus(t().status.solving, 'good');
       await nextFrame();
 
       const currentDateKey = dateKey(target.year, target.monthIndex, target.day);
@@ -682,7 +907,7 @@ import {
       const elapsedMs = Math.round(performance.now() - startedAt);
 
       if (!result) {
-        setStatus(`No solution found (${elapsedMs} ms).`, 'bad');
+        setStatus(t().status.noSolution(elapsedMs), 'bad');
         solveBtn.disabled = false;
         return;
       }
@@ -691,9 +916,9 @@ import {
       applySolution(result.solution);
       checkVictory();
       if (recycled) {
-        setStatus(`Solved in ${elapsedMs} ms (cycled solution pool).`, 'good');
+        setStatus(t().status.solvedRecycled(elapsedMs), 'good');
       } else {
-        setStatus(`Solved in ${elapsedMs} ms (new solution).`, 'good');
+        setStatus(t().status.solvedNew(elapsedMs), 'good');
       }
       solveBtn.disabled = false;
     });
@@ -703,6 +928,13 @@ import {
     calendarToggle.addEventListener('click', () => {
       const isCollapsed = calendarSection.classList.toggle('is-collapsed');
       calendarToggle.setAttribute('aria-expanded', String(!isCollapsed));
+    });
+  }
+
+  if (langToggle) {
+    langToggle.addEventListener('click', () => {
+      const next = currentLocale === 'zh' ? 'en' : 'zh';
+      setLocale(next, { persist: true });
     });
   }
 
@@ -770,7 +1002,7 @@ import {
       if (!selectedDate) return;
       const sol = solutions.get(selectedDate);
       if (!sol) {
-        setStatus('No saved solution for this date.', 'bad');
+        setStatus(t().status.noSavedSolution, 'bad');
         return;
       }
       const parts = selectedDate.split('-');
@@ -780,7 +1012,7 @@ import {
       const weekdayIdx = computeWeekday(year, monthIndex, day);
       setTargetDate(year, monthIndex, day, weekdayIdx);
       applySolution(sol);
-      setStatus('Solution restored.', 'good');
+      setStatus(t().status.solutionRestored, 'good');
     });
   }
 
