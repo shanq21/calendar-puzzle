@@ -133,11 +133,6 @@ export function buildPieces(piecesContainer) {
         blockEls.push(b);
       });
   
-      const rotateBtn = document.createElement('div');
-      rotateBtn.className = 'rotate-btn';
-      rotateBtn.textContent = '⟳';
-      pieceEl.appendChild(rotateBtn);
-  
       piecesContainer.appendChild(pieceEl);
   
       const piece = {
@@ -146,7 +141,6 @@ export function buildPieces(piecesContainer) {
         rotation: 0,
         element: pieceEl,
         blockEls,
-        rotateBtn,
         outlineSvg,
         fillPath,
         strokePath,
@@ -361,10 +355,12 @@ function updatePieceGradient(piece) {
   if (isDragging) fillAlpha = Math.min(1, alpha + 0.12);
 
   const fillRgb = `rgb(${r} ${g} ${b})`;
+  const hoverStroke = darken(0.84);
   piece.fillPath.setAttribute('fill', fillRgb);
   piece.fillPath.setAttribute('fill-opacity', String(fillAlpha));
   piece.strokePath.setAttribute('stroke', darken(0.9));
   piece.strokePath.setAttribute('stroke-opacity', '0.6');
+  piece.element.style.setProperty('--piece-hover-stroke', hoverStroke);
 }
 
 function updatePieceOutline(piece) {
@@ -720,6 +716,10 @@ function applyPieceTransform(piece) {
   
 let activePiece = null;
 let dragOffset  = { x: 0, y: 0 };
+let dragStarted = false;
+let pointerDownAt = { x: 0, y: 0 };
+let activePointerIsTouch = false;
+const DRAG_START_THRESHOLD_PX = 6;
 
 function getOffsetParentOrigin(el) {
   const parent = el.offsetParent;
@@ -735,23 +735,14 @@ function onPointerDownPiece(ev, piece) {
     const isTouch = ev.type.startsWith('touch');
     const point = isTouch ? ev.touches[0] : ev;
   
-    // 点击旋转按钮
-    if (point.target.classList.contains('rotate-btn')) {
-      rotatePiece(piece);
-      ev.preventDefault();
-      ev.stopPropagation();
-      return;
-    }
-  
     activePiece = piece;
+    activePointerIsTouch = isTouch;
+    dragStarted = false;
     piece.element.style.zIndex = String(zCounter++);
     pieces.forEach(p => p.element.classList.remove('selected'));
     piece.element.classList.add('selected');
-    piece.isOnBoard = false;
-    piece.element.classList.remove('on-board');
-    piece.element.classList.add('dragging');
-    updatePieceGradient(piece);
-    // playPickupSound();
+    pointerDownAt.x = point.clientX;
+    pointerDownAt.y = point.clientY;
   
     const el = piece.element;
     const parentOrigin = getOffsetParentOrigin(el);
@@ -765,13 +756,26 @@ function onPointerDownPiece(ev, piece) {
     window.addEventListener(isTouch ? 'touchend'  : 'mouseup',   onPointerUp);
   
     ev.preventDefault();
-    updateGhostFromPiece(piece);
   }
   
 function onPointerMove(ev) {
     if (!activePiece) return;
     const isTouch = ev.type.startsWith('touch');
     const point = isTouch ? ev.touches[0] : ev;
+
+    if (!dragStarted) {
+      const dx = point.clientX - pointerDownAt.x;
+      const dy = point.clientY - pointerDownAt.y;
+      if ((dx * dx + dy * dy) < (DRAG_START_THRESHOLD_PX * DRAG_START_THRESHOLD_PX)) {
+        return;
+      }
+      dragStarted = true;
+      activePiece.isOnBoard = false;
+      activePiece.element.classList.remove('on-board');
+      activePiece.element.classList.add('dragging');
+      updatePieceGradient(activePiece);
+      updateGhostFromPiece(activePiece);
+    }
   
     const el = activePiece.element;
     const parentOrigin = getOffsetParentOrigin(el);
@@ -789,17 +793,22 @@ function onPointerMove(ev) {
   
 function onPointerUp(ev) {
     if (!activePiece) return;
-    activePiece.element.classList.remove('dragging');
-    const snappedOnBoard = snapPieceToBoard(activePiece);
-    if (snappedOnBoard) {
-      playSnapSound();
+
+    if (dragStarted) {
+      activePiece.element.classList.remove('dragging');
+      const snappedOnBoard = snapPieceToBoard(activePiece);
+      if (snappedOnBoard) {
+        playSnapSound();
+      } else {
+        // playDropSound();
+      }
     } else {
-      // playDropSound();
+      rotatePiece(activePiece);
     }
   
-    const isTouch = ev.type.startsWith('touch');
-    window.removeEventListener(isTouch ? 'touchmove' : 'mousemove', onPointerMove);
-    window.removeEventListener(isTouch ? 'touchend'  : 'mouseup',   onPointerUp);
+    window.removeEventListener(activePointerIsTouch ? 'touchmove' : 'mousemove', onPointerMove);
+    window.removeEventListener(activePointerIsTouch ? 'touchend'  : 'mouseup',   onPointerUp);
+    dragStarted = false;
     activePiece = null;
 }
   
@@ -867,31 +876,23 @@ function onPointerUp(ev) {
   
 export function attachPieceEvents() {
   pieces.forEach(piece => {
-    const el = piece.element;
-    el.addEventListener('mousedown', ev => onPointerDownPiece(ev, piece));
-    el.addEventListener('touchstart', ev => onPointerDownPiece(ev, piece), { passive: false });
-    el.addEventListener('mouseenter', () => {
-      piece.element.classList.add('hovering');
-      updatePieceGradient(piece);
+    let hoverCount = 0;
+    piece.blockEls.forEach(blockEl => {
+      blockEl.addEventListener('mousedown', ev => onPointerDownPiece(ev, piece));
+      blockEl.addEventListener('touchstart', ev => onPointerDownPiece(ev, piece), { passive: false });
+      blockEl.addEventListener('mouseenter', () => {
+        hoverCount += 1;
+        piece.element.classList.add('hovering');
+        updatePieceGradient(piece);
+      });
+      blockEl.addEventListener('mouseleave', () => {
+        hoverCount = Math.max(0, hoverCount - 1);
+        if (hoverCount === 0) {
+          piece.element.classList.remove('hovering');
+          updatePieceGradient(piece);
+        }
+      });
     });
-    el.addEventListener('mouseleave', () => {
-      piece.element.classList.remove('hovering');
-      updatePieceGradient(piece);
-    });
-    el.addEventListener('dblclick', ev => {
-      if (ev.target.classList.contains('rotate-btn')) return;
-      rotatePiece(piece);
-      ev.preventDefault();
-    });
-  });
-
-  window.addEventListener('keydown', ev => {
-    if (ev.key === 'r' || ev.key === 'R' || ev.key === ' ') {
-      if (activePiece) {
-        rotatePiece(activePiece);
-        ev.preventDefault();
-      }
-    }
   });
 }
   
