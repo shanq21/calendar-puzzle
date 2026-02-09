@@ -793,6 +793,7 @@ function onPointerMove(ev) {
   
 function onPointerUp(ev) {
     if (!activePiece) return;
+    const point = getPointerPoint(ev, activePointerIsTouch);
 
     if (dragStarted) {
       activePiece.element.classList.remove('dragging');
@@ -803,7 +804,7 @@ function onPointerUp(ev) {
         // playDropSound();
       }
     } else {
-      rotatePiece(activePiece);
+      rotatePiece(activePiece, point);
     }
   
     window.removeEventListener(activePointerIsTouch ? 'touchmove' : 'mousemove', onPointerMove);
@@ -811,34 +812,34 @@ function onPointerUp(ev) {
     dragStarted = false;
     activePiece = null;
 }
+
+function getPointerPoint(ev, isTouch) {
+  if (isTouch) {
+    const touch = (ev.changedTouches && ev.changedTouches[0]) || (ev.touches && ev.touches[0]);
+    if (!touch) return null;
+    return { clientX: touch.clientX, clientY: touch.clientY };
+  }
+  return { clientX: ev.clientX, clientY: ev.clientY };
+}
   
   // ========= 7. 旋转 =========
   
-  function rotatePiece(piece) {
+  function rotatePiece(piece, pointer = null) {
     const newRot = (piece.rotation + 1) % 4;
     const wasOnBoard = piece.isOnBoard && piece.gx != null && piece.gy != null;
     const isDragging = piece.element.classList.contains('dragging');
+    const prevLeft = piece.left;
+    const prevTop = piece.top;
+    const prevBlocks = piece.rotatedBlocks.map(b => ({ x: b.x, y: b.y }));
+    const pivotIndex = findPivotBlockIndex(piece, pointer, prevBlocks);
     piece.rotation = newRot;
     layoutPieceBlocks(piece);
+    preservePivotCellCenter(piece, prevBlocks, pivotIndex, prevLeft, prevTop);
 
     let shouldPlaySnap = false;
     let shouldNotifyBoardState = false;
 
-    if (wasOnBoard) {
-      if (isPlacementValid(piece, piece.gx, piece.gy, newRot)) {
-        piece.isOnBoard = true;
-        piece.lastValid = { gx: piece.gx, gy: piece.gy, rotation: newRot };
-        piece.element.classList.add('on-board');
-        applyPieceTransform(piece);
-        shouldPlaySnap = true;
-      } else {
-        piece.gx = null;
-        piece.gy = null;
-        piece.isOnBoard = false;
-        piece.element.classList.remove('on-board');
-      }
-      shouldNotifyBoardState = true;
-    } else if (!isDragging) {
+    if (wasOnBoard || !isDragging) {
       const { gx, gy, inside } = computeSnapGrid(piece);
       if (inside && isPlacementValid(piece, gx, gy, newRot)) {
         piece.gx = gx;
@@ -853,6 +854,10 @@ function onPointerUp(ev) {
         piece.gy = null;
         piece.isOnBoard = false;
         piece.element.classList.remove('on-board');
+        piece.left = Math.round(piece.left);
+        piece.top = Math.round(piece.top);
+        piece.element.style.left = `${piece.left}px`;
+        piece.element.style.top = `${piece.top}px`;
       }
       shouldNotifyBoardState = true;
     }
@@ -871,6 +876,51 @@ function onPointerUp(ev) {
       updateGhostFromPiece(piece);
     }
   }
+
+function findPivotBlockIndex(piece, pointer, blocks) {
+  if (!pointer || !blocks || blocks.length === 0) return -1;
+  const el = piece.element;
+  const parentOrigin = getOffsetParentOrigin(el);
+  const localX = pointer.clientX - (parentOrigin.x + piece.left);
+  const localY = pointer.clientY - (parentOrigin.y + piece.top);
+  const gx = Math.floor(localX / cellSize);
+  const gy = Math.floor(localY / cellSize);
+  const exact = blocks.findIndex(b => b.x === gx && b.y === gy);
+  if (exact >= 0) return exact;
+
+  let bestIndex = -1;
+  let bestDist = Infinity;
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
+    const cx = b.x * cellSize + cellSize / 2;
+    const cy = b.y * cellSize + cellSize / 2;
+    const dx = localX - cx;
+    const dy = localY - cy;
+    const dist = dx * dx + dy * dy;
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestIndex = i;
+    }
+  }
+  return bestIndex;
+}
+
+function preservePivotCellCenter(piece, prevBlocks, pivotIndex, prevLeft, prevTop) {
+  if (pivotIndex < 0) return;
+  const prev = prevBlocks[pivotIndex];
+  const next = piece.rotatedBlocks[pivotIndex];
+  if (!prev || !next) return;
+
+  const prevCenterX = prev.x * cellSize + cellSize / 2;
+  const prevCenterY = prev.y * cellSize + cellSize / 2;
+  const nextCenterX = next.x * cellSize + cellSize / 2;
+  const nextCenterY = next.y * cellSize + cellSize / 2;
+
+  piece.left = Math.round(prevLeft + prevCenterX - nextCenterX);
+  piece.top = Math.round(prevTop + prevCenterY - nextCenterY);
+  piece.element.style.left = `${piece.left}px`;
+  piece.element.style.top = `${piece.top}px`;
+}
   
   // ========= 8. 事件绑定入口 =========
   
